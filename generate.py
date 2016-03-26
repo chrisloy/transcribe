@@ -1,5 +1,7 @@
 import midi
 import random
+from subprocess import call
+from os import devnull
 
 
 class Note(object):
@@ -102,11 +104,25 @@ def random_track(measures, measure_length):
 
 def random_pattern():
     pattern = midi.Pattern()
-    pattern.append(random_track(1000, 50))
+    pattern.append(random_track(100, 50))
     eot = midi.EndOfTrackEvent(tick=1)
     pattern[0].append(eot)
     return pattern
 
 
+def write_wav_file(mid_file_name, wav_file_name, out_file):
+    call(["/usr/local/bin/timidity", mid_file_name, "-Ow", "-o", wav_file_name], stdout=out_file, stderr=out_file)
+
+
+def generate_pair(num, out_file):
+    mid_file_name = "output/%04d.mid" % num
+    wav_file_name = "output/%04d.wav" % num
+    midi.write_midifile(mid_file_name, random_pattern())
+    write_wav_file(mid_file_name, wav_file_name, out_file)
+
+
 if __name__ == "__main__":
-    midi.write_midifile("output/example.mid", random_pattern())
+    of = open(devnull, 'w')
+    for i in range(0, 1000):
+        generate_pair(i, of)
+        print "Completed %d of 1000" % i
