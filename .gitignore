@@ -1,0 +1,4 @@
+*.pyc
+output
+.DS_Store
+.idea
