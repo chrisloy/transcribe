@@ -1,30 +1,47 @@
 import midi
 import numpy as np
 
+PITCHES = 128
+
 
 def length_of_track(track):
     return sum(map(lambda x: x.tick, track))
 
 
 def slice_midi(data, slice_size):
-    track = data[0]
+    track = data[0]  # TODO multiple tracks?
     raw = track_to_boolean_table(track)
-    num = length_of_track(track) / slice_size
+    length = length_of_track(track)
+    print "length", length, raw.shape
+    padding = (slice_size - (length % slice_size)) % slice_size
+    num = (length + padding) / slice_size
+    print "num", num, "padding", padding, "slice_size", slice_size
+    raw = np.append(raw, np.zeros((PITCHES, padding)), axis=1)
     slices = np.split(raw, num, axis=1)
-
-    result = np.zeros((128, num))
-
+    result = np.zeros((PITCHES, num))
     for i in range(0, num):
         result[:, i] = np.mean(slices[i], axis=1)
+    return result
 
+
+def slice_midi_into(data, num_slices):
+    track = data[0]  # TODO multiple tracks?
+    raw = track_to_boolean_table(track)
+    l = length_of_track(track)
+    padding = ((l / num_slices) + 1) * num_slices - l
+    raw = np.append(raw, np.zeros((PITCHES, padding)), axis=1)
+    slices = np.split(raw, num_slices, axis=1)
+    result = np.zeros((PITCHES, num_slices))
+    for i in range(0, num_slices):
+        result[:, i] = np.mean(slices[i], axis=1)
     return result
 
 
 def track_to_boolean_table(track):
-    result = np.zeros((128, length_of_track(track)))
+    result = np.zeros((PITCHES, length_of_track(track)))
 
     last = 0
-    current = np.zeros(128)
+    current = np.zeros(PITCHES)
 
     for event in track:
         up_to = last + event.tick
@@ -50,10 +67,10 @@ if __name__ == "__main__":
       midi.NoteOffEvent(tick=2, pitch=5),
       midi.NoteOnEvent(tick=4, pitch=8),
       midi.NoteOffEvent(tick=1, pitch=8),
-      midi.EndOfTrackEvent(tick=1)
+      midi.EndOfTrackEvent(tick=2)
     ])
     # expected
-    expected = np.zeros((128, 8))
+    expected = np.zeros((PITCHES, 9))
     expected[5, 0:2] = 1
     expected[8, 6] = 1
     # test
@@ -64,7 +81,7 @@ if __name__ == "__main__":
     # input
     p = midi.Pattern([t])
     # expected
-    expected = np.zeros((128, 2))
+    expected = np.zeros((PITCHES, 3))
     expected[5, 0] = 0.5
     expected[8, 1] = 0.25
     # test

@@ -17,8 +17,14 @@ def load(file_name):
     return sig.spectrogram(mono, fs=rate)
 
 
+def load_slice(file_name, slices):
+    rate, stereo = wavfile.read(file_name)
+    mono = np.add(stereo[:, 0], stereo[:, 1]) / 2
+    nps = int(584344.0 / slices) + 32
+    return sig.spectrogram(mono, fs=rate, nperseg=nps)
+
+
 def plot(d, t, f):
-    print d.shape
     plt.pcolormesh(t, f, np.log(d))
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
@@ -27,5 +33,9 @@ def plot(d, t, f):
 
 
 if __name__ == "__main__":
-    fs, ts, data = load('output/0128.wav')
+    fs, ts, data = load_slice('output/0128.wav', 2500)
+    np.set_printoptions(threshold='nan')
+    print fs
+    print ts
+    print data.shape
     plot(data, ts, fs)
