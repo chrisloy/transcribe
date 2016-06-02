@@ -12,10 +12,8 @@ def slice_midi(data, slice_size):
     track = data[0]  # TODO multiple tracks?
     raw = track_to_boolean_table(track)
     length = length_of_track(track)
-    print "length", length, raw.shape
     padding = (slice_size - (length % slice_size)) % slice_size
     num = (length + padding) / slice_size
-    print "num", num, "padding", padding, "slice_size", slice_size
     raw = np.append(raw, np.zeros((PITCHES, padding)), axis=1)
     slices = np.split(raw, num, axis=1)
     result = np.zeros((PITCHES, num))
@@ -58,6 +56,32 @@ def track_to_boolean_table(track):
     return result
 
 
+def boolean_table_to_track(table):
+    result = midi.Track()
+
+    last = np.zeros(PITCHES)
+    last_event = 0
+
+    length = table.shape[1]
+
+    for i in range(0, length):
+        this = table[:, i]
+        for n in range(0, PITCHES):
+            if last[n] < this[n]:
+                result.append(midi.NoteOnEvent(tick=(i-last_event), pitch=n))
+                last_event = i
+            elif last[n] > this[n]:
+                result.append(midi.NoteOffEvent(tick=(i-last_event), pitch=n))
+                last_event = i
+            else:
+                pass
+        last = this
+
+    result.append(midi.EndOfTrackEvent(tick=(length-last_event)))
+
+    return result
+
+
 if __name__ == "__main__":
 
     print "TEST: track_to_boolean_table"
@@ -87,3 +111,8 @@ if __name__ == "__main__":
     # test
     actual = slice_midi(p, 4)
     assert np.equal(actual, expected).all()
+
+    print "TEST: boolean_table_to_track"
+    test = boolean_table_to_track(track_to_boolean_table(t))
+    assert test == t, test
+
