@@ -1,7 +1,9 @@
 from scipy.io import wavfile
+from scipy import fftpack
 import scipy.signal as sig
 from matplotlib import pyplot as plt
 import numpy as np
+import scipy
 
 
 def load(file_name):
@@ -32,10 +34,33 @@ def plot(d, t, f):
     plt.show()
 
 
+def spectrogram_10hz(signal, rate, slice_samples):
+
+    print signal.shape
+
+    slices = signal.shape[0] / slice_samples
+    result = np.zeros([slices, slice_samples])
+    for i in range(slices):
+        signal_slice = signal[i*slice_samples:(i+1)*slice_samples]
+        f = scipy.fft(signal_slice)
+        result[i, :] = np.abs(f)
+    fs = np.arange(slice_samples) * 10 #scipy.fftpack.fftfreq(signal.size, 1.0/44100)
+    ts = np.arange(slices) * (float(slice_samples) / rate)
+
+    print fs.shape
+    print ts.shape
+    print result.shape
+
+    # norm = np.linalg.norm(result)
+    norm = np.max(result)
+
+    # result = 20*scipy.log10(result)
+
+    return fs, ts, np.transpose(result/norm)
+
+
 if __name__ == "__main__":
-    fs, ts, data = load_slice('output/0128.wav', 2500)
-    np.set_printoptions(threshold='nan')
-    print fs
-    print ts
-    print data.shape
-    plot(data, ts, fs)
+    r, st = wavfile.read("sanity.wav")
+    mono = np.add(st[:, 0], st[:, 1]) / 2
+    fs, ts, s = spectrogram_10hz(mono, r, 4410)
+    plot(s, ts, fs)
