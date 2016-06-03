@@ -65,7 +65,7 @@ def boolean_table_to_track(table):
     length = table.shape[1]
 
     for i in range(0, length):
-        this = table[:, i]
+        this = np.round(table[:, i])
         for n in range(0, PITCHES):
             if last[n] < this[n]:
                 result.append(midi.NoteOnEvent(tick=(i-last_event), pitch=n))
