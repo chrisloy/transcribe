@@ -60,7 +60,7 @@ def spectrogram_10hz(signal, rate, slice_samples):
 
 
 if __name__ == "__main__":
-    r, st = wavfile.read("sanity.wav")
+    r, st = wavfile.read("output/sanity.wav")
     mono = np.add(st[:, 0], st[:, 1]) / 2
     fs, ts, s = spectrogram_10hz(mono, r, 4410)
     plot(s, ts, fs)

@@ -78,20 +78,20 @@ def run_logistic_regression():
     x_test, y_test = load_slices(900, 1000)
     print "TEST MSE:", mse.eval(feed_dict={x: x_test, y_: y_test})
 
-    ex = np.transpose(load_x("sanity.wav", 2000))
+    ex = np.transpose(load_x("output/sanity.wav", 2000))
 
     output = np.transpose(y.eval(feed_dict={x: ex}))
     print output.shape
     track = slicer.boolean_table_to_track(output)
 
     print track
-    original_track = midi.read_midifile("sanity.mid")[0]
+    original_track = midi.read_midifile("output/sanity.mid")[0]
     print original_track
 
     pattern = midi.Pattern()
     pattern.append(track)
-    midi.write_midifile("sanity_pred.mid", pattern)
-    generate.write_wav_file("sanity_pred.mid", "sanity_pred.wav", open(devnull, 'w'))
+    midi.write_midifile("output/sanity_pred.mid", pattern)
+    generate.write_wav_file("output/sanity_pred.mid", "output/sanity_pred.wav", open(devnull, 'w'))
 
 
 if __name__ == "__main__":
