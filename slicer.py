@@ -18,7 +18,7 @@ def slice_midi(data, slice_size):
     slices = np.split(raw, num, axis=1)
     result = np.zeros((PITCHES, num))
     for i in range(0, num):
-        result[:, i] = np.mean(slices[i], axis=1)
+        result[:, i] = np.max(slices[i], axis=1)
     return result
 
 
@@ -31,7 +31,7 @@ def slice_midi_into(data, num_slices):
     slices = np.split(raw, num_slices, axis=1)
     result = np.zeros((PITCHES, num_slices))
     for i in range(0, num_slices):
-        result[:, i] = np.mean(slices[i], axis=1)
+        result[:, i] = np.max(slices[i], axis=1)
     return result
 
 
