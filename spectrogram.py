@@ -1,5 +1,4 @@
 from scipy.io import wavfile
-from scipy import fftpack
 import scipy.signal as sig
 from matplotlib import pyplot as plt
 import numpy as np
@@ -19,48 +18,39 @@ def load(file_name):
     return sig.spectrogram(mono, fs=rate)
 
 
-def load_slice(file_name, slices):
+def load_mono(file_name):
     rate, stereo = wavfile.read(file_name)
-    mono = np.add(stereo[:, 0], stereo[:, 1]) / 2
+    return np.add(stereo[:, 0], stereo[:, 1]) / 2, rate
+
+
+def load_slice(file_name, slices):
+    mono, rate = load_mono(file_name)
     nps = int(584344.0 / slices) + 32
     return sig.spectrogram(mono, fs=rate, nperseg=nps)
 
 
 def plot(d, t, f):
-    plt.pcolormesh(t, f, np.log(d))
+    plt.pcolormesh(t, f, d)
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
     plt.colorbar()
     plt.show()
 
 
-def spectrogram_10hz(signal, rate, slice_samples):
-
-    print signal.shape
-
+def spectrogram_10hz(file_name, slice_samples):
+    signal, rate = load_mono(file_name)
     slices = signal.shape[0] / slice_samples
     result = np.zeros([slices, slice_samples])
     for i in range(slices):
         signal_slice = signal[i*slice_samples:(i+1)*slice_samples]
         f = scipy.fft(signal_slice)
         result[i, :] = np.abs(f)
-    fs = np.arange(slice_samples) * 10 #scipy.fftpack.fftfreq(signal.size, 1.0/44100)
+    fs = np.arange(slice_samples / 5) * 20
     ts = np.arange(slices) * (float(slice_samples) / rate)
-
-    print fs.shape
-    print ts.shape
-    print result.shape
-
-    # norm = np.linalg.norm(result)
-    norm = np.max(result)
-
-    # result = 20*scipy.log10(result)
-
-    return fs, ts, np.transpose(result/norm)
+    return fs, ts, np.transpose(result[:, :slice_samples / 5] / np.max(result))
 
 
 if __name__ == "__main__":
-    r, st = wavfile.read("output/sanity.wav")
-    mono = np.add(st[:, 0], st[:, 1]) / 2
-    fs, ts, s = spectrogram_10hz(mono, r, 4410)
-    plot(s, ts, fs)
+    y, x, s = spectrogram_10hz("output/sanity.wav", 4410)
+    print s.shape
+    plot(s, x, y)
