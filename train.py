@@ -40,7 +40,7 @@ def load_slices(a, b, slice_samples):
 
 
 def param(shape):
-    return tf.Variable(tf.random_normal(shape, 0.35))
+    return tf.Variable(tf.random_normal(shape, 0.35), dtype="float32")
 
 
 def run_logistic_regression():
@@ -68,7 +68,6 @@ def run_logistic_regression():
 
     mse = tf.reduce_sum(tf.abs(y - y_))
 
-    # train_step = tf.train.GradientDescentOptimizer(2.5).minimize(mse)
     train_step = tf.train.AdamOptimizer().minimize(mse)
 
     sess.run(tf.initialize_all_variables())
@@ -132,5 +131,83 @@ def run_logistic_regression():
     # generate.write_wav_file("output/sanity_pred.mid", "output/sanity_pred_deep.wav", open(devnull, 'w'))
 
 
+def run_individual_classifiers():
+    sess = tf.InteractiveSession()
+
+    max_notes = 128
+    slice_samples = 4410
+    features = 882
+    epochs = 20
+    notes = range(max_notes)
+
+    print "Loading training set...."
+    x_train, y_train = load_slices(0, 900, slice_samples)
+
+    print "Loading testing set...."
+    x_test, y_test = load_slices(900, 1000, slice_samples)
+
+    y_train_1h = np.stack([1 - y_train, y_train], axis=2)
+    y_test_1h = np.stack([1 - y_test, y_test], axis=2)
+
+    batch_size = 1000
+    batches = x_train.shape[0] / batch_size
+
+    x = tf.placeholder(tf.float32, shape=[None, features])
+
+    y_ = []
+    y = []
+    loss = []
+    train_step = []
+
+    for n in notes:
+        y_.append(tf.placeholder(tf.float32, shape=[None, 2]))
+        w = param([features, 2])
+        b = param([2])
+        y.append(tf.nn.softmax(tf.matmul(x, w) + b))
+        # loss.append(tf.reduce_sum(tf.abs(y[n] - y_[n])))
+        loss.append(tf.reduce_mean(-tf.reduce_sum(y_[n]*tf.log(y[n]), reduction_indices=1)))
+        train_step.append(tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss[n]))
+
+    sess.run(tf.initialize_all_variables())
+
+    for n in notes:
+        y_train_n = y_train_1h[:, n, :]
+        y_test_n = y_test_1h[:, n, :]
+
+        for j in range(epochs):
+
+            for i in range(batches):
+
+                sys.stdout.write("NOTE %03d - EPOCH %02d/%d - BATCH %03d/%d\r" % (n, j + 1, epochs, i + 1, batches))
+                sys.stdout.flush()
+
+                start = i * batch_size
+                stop = (i + 1) * batch_size
+
+                train_step[n].run(feed_dict={x: x_train[start:stop], y_[n]: y_train_n[start:stop]})
+
+            if j + 1 == epochs:
+                sys.stdout.write("NOTE %03d - EPOCH %d/%d - TRAIN ERROR: %0.4f - TEST ERROR: %0.4f\n" %
+                                 (
+                                     n,
+                                     j + 1,
+                                     epochs,
+                                     loss[n].eval(feed_dict={x: x_train, y_[n]: y_train_n}),
+                                     loss[n].eval(feed_dict={x: x_test, y_[n]: y_test_n})
+                                 ))
+                sys.stdout.flush()
+            # else:
+            #     print ""
+
+    y_pred = np.empty([y_test.shape[0], max_notes])
+
+    for n in notes:
+        y_pred[:, n] = y[n].eval(feed_dict={x: x_test})[:, 1]
+    fpr, tpr, thresholds = roc_curve(y_test.flatten(), y_pred.flatten())
+
+    plt.plot(fpr, tpr)
+    plt.show()
+
+
 if __name__ == "__main__":
-    run_logistic_regression()
+    run_individual_classifiers()
