@@ -2,7 +2,6 @@ from scipy.io import wavfile
 import scipy.signal as sig
 from matplotlib import pyplot as plt
 import numpy as np
-import scipy
 
 
 def load(file_name):
@@ -40,14 +39,16 @@ def plot(d, t, f):
 def spectrogram_10hz(file_name, slice_samples):
     signal, rate = load_mono(file_name)
     slices = signal.shape[0] / slice_samples
-    result = np.zeros([slices, slice_samples])
+    features = (slice_samples/2)+1 if slice_samples % 2 == 0 else (slice_samples+1)/2
+    result = np.zeros([slices, features])
     for i in range(slices):
         signal_slice = signal[i*slice_samples:(i+1)*slice_samples]
-        f = scipy.fft(signal_slice)
+        f = np.fft.rfft(signal_slice)
+        print f.shape
         result[i, :] = np.abs(f)
-    fs = np.arange(slice_samples / 5) * 20
+    fs = np.arange(features) * 20
     ts = np.arange(slices) * (float(slice_samples) / rate)
-    return fs, ts, np.transpose(result[:, :slice_samples / 5] / np.max(result))
+    return fs, ts, np.transpose(result[:, :slice_samples] / np.max(result))
 
 
 if __name__ == "__main__":
