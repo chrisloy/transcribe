@@ -115,14 +115,14 @@ def write_wav_file(mid_file_name, wav_file_name, out_file):
 
 
 def generate_pair(num, out_file):
-    mid_file_name = "output/%04d.mid" % num
-    wav_file_name = "output/%04d.wav" % num
+    mid_file_name = "corpus/%04d.mid" % num
+    wav_file_name = "corpus/%04d.wav" % num
     midi.write_midifile(mid_file_name, random_pattern())
     write_wav_file(mid_file_name, wav_file_name, out_file)
 
 
 if __name__ == "__main__":
     of = open(devnull, 'w')
-    for i in range(0, 1000):
+    for i in range(0, 20000):
         generate_pair(i, of)
-        print "Completed %d of 1000" % i
+        print "Completed %d of 20000" % i
