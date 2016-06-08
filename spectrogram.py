@@ -51,7 +51,35 @@ def spectrogram_10hz(file_name, slice_samples):
     return fs, ts, np.transpose(result[:, :slice_samples] / np.max(result))
 
 
+def spectrogram_cqt(file_name, slice_samples):
+    signal, rate = load_mono(file_name)
+    slices = signal.shape[0] / slice_samples
+    result = np.zeros([slices, slice_samples])
+    for i in range(slices):
+        signal_slice = signal[i*slice_samples:(i+1)*slice_samples]
+        f = cqt(signal_slice)
+        print f.shape
+        result[i, :] = f
+    fs = np.arange(slice_samples) * 20
+    ts = np.arange(slices) * (float(slice_samples) / rate)
+    return fs, ts, np.transpose(result[:, :slice_samples] / np.max(result))
+
+
+def cqt(frame):
+    n = len(frame) / 10
+    y = np.array(np.zeros(n))
+    a = np.sqrt(2 / float(n))
+    for k in range(n):
+        for nn in range(n):
+            y[k] += frame[nn] * np.cos(np.pi * (2 * nn + 1) * k / float(2 * n))
+
+            if k == 0:
+                y[k] = y[k] * np.sqrt(1 / float(n))
+            else:
+                y[k] = y[k] * a
+    return y
+
+
 if __name__ == "__main__":
-    y, x, s = spectrogram_10hz("output/sanity.wav", 4410)
-    print s.shape
-    plot(s, x, y)
+    y_label, x_label, s = spectrogram_cqt("output/sanity.wav", 4410)
+    plot(s, x_label, y_label)
