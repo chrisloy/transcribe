@@ -26,8 +26,8 @@ def load_slices(a, b, slice_samples):
         sys.stdout.write("%d/%d\r" % (i - a, b - a))
         sys.stdout.flush()
 
-        xi, s = load_x("output/%04d.wav" % i, slice_samples)
-        yi = load_y("output/%04d.mid" % i, s)
+        xi, s = load_x("corpus/%04d.wav" % i, slice_samples)
+        yi = load_y("corpus/%04d.mid" % i, s)
 
         if xi.shape[1] == yi.shape[1]:
             x.append(xi)
@@ -141,10 +141,10 @@ def run_individual_classifiers():
     notes = range(max_notes)
 
     print "Loading training set...."
-    x_train, y_train = load_slices(0, 900, slice_samples)
+    x_train, y_train = load_slices(0, 6000, slice_samples)
 
     print "Loading testing set...."
-    x_test, y_test = load_slices(900, 1000, slice_samples)
+    x_test, y_test = load_slices(9000, 10000, slice_samples)
 
     y_train_1h = np.stack([1 - y_train, y_train], axis=2)
     y_test_1h = np.stack([1 - y_test, y_test], axis=2)
