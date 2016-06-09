@@ -1,16 +1,23 @@
 import midi
 import numpy as np
+import preprocess
 import slicer
 import spectrogram
 import sys
 import tensorflow as tf
 from sklearn.metrics import roc_curve
 from matplotlib import pyplot as plt
+from multiprocessing import Pool
 
 
-def load_x(wav_file, slice_samples):
-    _, ts, data = spectrogram.spectrogram_10hz(wav_file, slice_samples)
-    return data, ts.shape[0]
+def load_x(wav_file, engine):
+    data = spectrogram.spectrogram_cqt(wav_file, engine)
+    return data.astype("float32"), data.shape[1]
+
+
+def load_cached_x(cache_file):
+    data = preprocess.refresh(cache_file)
+    return data.astype("float32"), data.shape[1]
 
 
 def load_y(midi_file, slices):
@@ -18,29 +25,45 @@ def load_y(midi_file, slices):
     return slicer.slice_midi_into(m, slices)
 
 
+def load_pair(i):
+
+    # sys.stdout.write("%d/%d\r" % (i - a, b - a))
+    # sys.stdout.flush()
+
+    # xi, s = load_x("corpus/%04d.wav" % i, engine)
+    xi, s = load_cached_x("corpus/%04d_features.p" % i)
+    yi = load_y("corpus/%04d.mid" % i, s)
+
+    return xi, yi
+
+
 def load_slices(a, b, slice_samples):
+
+    # engine = spectrogram.cqt_engine(slice_samples, 60)
+
+    pool = Pool(processes=8)
+
     x = []
     y = []
-    for i in range(a, b):
 
-        sys.stdout.write("%d/%d\r" % (i - a, b - a))
-        sys.stdout.flush()
+    xys = pool.map(load_pair, range(a, b))
 
-        xi, s = load_x("corpus/%04d.wav" % i, slice_samples)
-        yi = load_y("corpus/%04d.mid" % i, s)
+    for xi, yi in xys:
+        x.append(xi)
+        y.append(yi)
 
-        if xi.shape[1] == yi.shape[1]:
-            x.append(xi)
-            y.append(yi)
-        else:
-            print "WARN: skipping", (xi.shape, yi.shape, i)
     x = np.concatenate(x, axis=1)
     y = np.concatenate(y, axis=1)
+
     return np.transpose(x), np.transpose(y)
 
 
-def param(shape):
+def param_norm(shape):
     return tf.Variable(tf.random_normal(shape, 0.35), dtype="float32")
+
+
+def param_zeros(shape):
+    return tf.Variable(tf.zeros(shape), dtype="float32")
 
 
 def run_logistic_regression():
@@ -134,17 +157,18 @@ def run_logistic_regression():
 def run_individual_classifiers():
     sess = tf.InteractiveSession()
 
-    max_notes = 128
-    slice_samples = 4410
-    features = 882
-    epochs = 20
-    notes = range(max_notes)
+    start_note = 67
+    max_notes = 1
+    slice_samples = 512
+    features = 660
+    epochs = 200
+    notes = range(start_note, start_note + max_notes)
 
     print "Loading training set...."
-    x_train, y_train = load_slices(0, 6000, slice_samples)
+    x_train, y_train = load_slices(0, 1000, slice_samples)
 
     print "Loading testing set...."
-    x_test, y_test = load_slices(9000, 10000, slice_samples)
+    x_test, y_test = load_slices(100, 1100, slice_samples)
 
     y_train_1h = np.stack([1 - y_train, y_train], axis=2)
     y_test_1h = np.stack([1 - y_test, y_test], axis=2)
@@ -160,50 +184,53 @@ def run_individual_classifiers():
     train_step = []
 
     for n in notes:
+        i = n - start_note
         y_.append(tf.placeholder(tf.float32, shape=[None, 2]))
-        w = param([features, 2])
-        b = param([2])
+        w = param_zeros([features, 2])
+        b = param_zeros([2])
         y.append(tf.nn.softmax(tf.matmul(x, w) + b))
         # loss.append(tf.reduce_sum(tf.abs(y[n] - y_[n])))
-        loss.append(tf.reduce_mean(-tf.reduce_sum(y_[n]*tf.log(y[n]), reduction_indices=1)))
-        train_step.append(tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss[n]))
+        loss.append(tf.reduce_mean(-tf.reduce_sum(y_[i] * tf.log(tf.clip_by_value(y[i], 1e-20, 1.0)), reduction_indices=1)))
+        train_step.append(tf.train.AdamOptimizer(learning_rate=0.1).minimize(loss[i]))
 
     sess.run(tf.initialize_all_variables())
 
     for n in notes:
-        y_train_n = y_train_1h[:, n, :]
-        y_test_n = y_test_1h[:, n, :]
+
+        i = n - start_note
+
+        y_train_n = y_train_1h[:, i, :]
+        y_test_n = y_test_1h[:, i, :]
 
         for j in range(epochs):
 
-            for i in range(batches):
+            for k in range(batches):
 
-                sys.stdout.write("NOTE %03d - EPOCH %02d/%d - BATCH %03d/%d\r" % (n, j + 1, epochs, i + 1, batches))
+                sys.stdout.write("NOTE %03d - EPOCH %02d/%d - BATCH %03d/%d\r" % (n, j + 1, epochs, k + 1, batches))
                 sys.stdout.flush()
 
-                start = i * batch_size
-                stop = (i + 1) * batch_size
+                start = k * batch_size
+                stop = (k + 1) * batch_size
 
-                train_step[n].run(feed_dict={x: x_train[start:stop], y_[n]: y_train_n[start:stop]})
+                train_step[i].run(feed_dict={x: x_train[start:stop], y_[i]: y_train_n[start:stop]})
 
-            if j + 1 == epochs:
-                sys.stdout.write("NOTE %03d - EPOCH %d/%d - TRAIN ERROR: %0.4f - TEST ERROR: %0.4f\n" %
+            if j + 1 == epochs or (j + 1) % 5 == 0:
+                sys.stdout.write("NOTE %03d - EPOCH %02d/%d - TRAIN ERROR: %0.16f - TEST ERROR: %0.16f\n" %
                                  (
                                      n,
                                      j + 1,
                                      epochs,
-                                     loss[n].eval(feed_dict={x: x_train, y_[n]: y_train_n}),
-                                     loss[n].eval(feed_dict={x: x_test, y_[n]: y_test_n})
+                                     loss[i].eval(feed_dict={x: x_train, y_[i]: y_train_n}),
+                                     loss[i].eval(feed_dict={x: x_test, y_[i]: y_test_n})
                                  ))
                 sys.stdout.flush()
-            # else:
-            #     print ""
 
     y_pred = np.empty([y_test.shape[0], max_notes])
 
     for n in notes:
-        y_pred[:, n] = y[n].eval(feed_dict={x: x_test})[:, 1]
-    fpr, tpr, thresholds = roc_curve(y_test.flatten(), y_pred.flatten())
+        i = n - start_note
+        y_pred[:, i] = y[i].eval(feed_dict={x: x_test})[:, 1]
+    fpr, tpr, thresholds = roc_curve(y_test[:, start_note:start_note+max_notes].flatten(), y_pred.flatten())
 
     plt.plot(fpr, tpr)
     plt.show()

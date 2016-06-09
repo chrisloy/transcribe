@@ -64,15 +64,13 @@ def cqt_engine(slice_samples, bins_per_octave):
 
 def spectrogram_cqt(file_name, engine):
     audio, _ = load_mono(file_name)
-
-    result = engine.processAudio(audio.reshape(1, -1).astype("float64"))["cqt"]
-
-    fs = np.arange(60 * 11)
-    ts = np.arange(result.shape[0])
-
-    return fs, ts, np.transpose(result)
+    result = np.abs(engine.processAudio(audio.reshape(1, -1).astype("float64"))["cqt"])
+    return np.transpose(result / np.max(result))
 
 
 if __name__ == "__main__":
-    y_label, x_label, s = spectrogram_cqt("output/sanity.wav", cqt_engine(512, 60))
-    plot(s, x_label, y_label)
+    import preprocess
+    s = preprocess.refresh("corpus/0003_features.p")
+    x_label = np.arange(s.shape[1])
+    y_label = np.arange(60 * 11)
+    plot(s.astype("float32"), x_label, y_label)
