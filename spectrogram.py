@@ -2,6 +2,7 @@ from scipy.io import wavfile
 import scipy.signal as sig
 from matplotlib import pyplot as plt
 import numpy as np
+import yaafelib as yf
 
 
 def load(file_name):
@@ -51,35 +52,27 @@ def spectrogram_10hz(file_name, slice_samples):
     return fs, ts, np.transpose(result[:, :slice_samples] / np.max(result))
 
 
-def spectrogram_cqt(file_name, slice_samples):
-    signal, rate = load_mono(file_name)
-    slices = signal.shape[0] / slice_samples
-    result = np.zeros([slices, slice_samples])
-    for i in range(slices):
-        signal_slice = signal[i*slice_samples:(i+1)*slice_samples]
-        f = cqt(signal_slice)
-        print f.shape
-        result[i, :] = f
-    fs = np.arange(slice_samples) * 20
-    ts = np.arange(slices) * (float(slice_samples) / rate)
-    return fs, ts, np.transpose(result[:, :slice_samples] / np.max(result))
+def cqt_engine(slice_samples, bins_per_octave):
+    fp = yf.FeaturePlan()
+    fp.addFeature("cqt: CQT CQTAlign=c  CQTBinsPerOctave=%d  CQTMinFreq=8.1757  CQTNbOctaves=11  stepSize=%d"
+                  % (bins_per_octave, slice_samples))
+
+    engine = yf.Engine()
+    engine.load(fp.getDataFlow())
+    return engine
 
 
-def cqt(frame):
-    n = len(frame) / 10
-    y = np.array(np.zeros(n))
-    a = np.sqrt(2 / float(n))
-    for k in range(n):
-        for nn in range(n):
-            y[k] += frame[nn] * np.cos(np.pi * (2 * nn + 1) * k / float(2 * n))
+def spectrogram_cqt(file_name, engine):
+    audio, _ = load_mono(file_name)
 
-            if k == 0:
-                y[k] = y[k] * np.sqrt(1 / float(n))
-            else:
-                y[k] = y[k] * a
-    return y
+    result = engine.processAudio(audio.reshape(1, -1).astype("float64"))["cqt"]
+
+    fs = np.arange(60 * 11)
+    ts = np.arange(result.shape[0])
+
+    return fs, ts, np.transpose(result)
 
 
 if __name__ == "__main__":
-    y_label, x_label, s = spectrogram_cqt("output/sanity.wav", 4410)
+    y_label, x_label, s = spectrogram_cqt("output/sanity.wav", cqt_engine(512, 60))
     plot(s, x_label, y_label)
