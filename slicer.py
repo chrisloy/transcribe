@@ -106,8 +106,8 @@ if __name__ == "__main__":
     p = midi.Pattern([t])
     # expected
     expected = np.zeros((PITCHES, 3))
-    expected[5, 0] = 0.5
-    expected[8, 1] = 0.25
+    expected[5, 0] = 1
+    expected[8, 1] = 1
     # test
     actual = slice_midi(p, 4)
     assert np.equal(actual, expected).all()
