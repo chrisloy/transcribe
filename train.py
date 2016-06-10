@@ -10,14 +10,18 @@ from matplotlib import pyplot as plt
 from multiprocessing import Pool
 
 
+def data_to_x_and_slices(data):
+    return data.astype("float32"), data.shape[1]
+
+
 def load_x(wav_file, engine):
     data = spectrogram.spectrogram_cqt(wav_file, engine)
-    return data.astype("float32"), data.shape[1]
+    return data_to_x_and_slices(data)
 
 
 def load_cached_x(cache_file):
     data = preprocess.refresh(cache_file)
-    return data.astype("float32"), data.shape[1]
+    return data_to_x_and_slices(data)
 
 
 def load_y(midi_file, slices):
@@ -25,32 +29,39 @@ def load_y(midi_file, slices):
     return slicer.slice_midi_into(m, slices)
 
 
-def load_pair(i):
-
-    # sys.stdout.write("%d/%d\r" % (i - a, b - a))
-    # sys.stdout.flush()
-
-    # xi, s = load_x("corpus/%04d.wav" % i, engine)
-    xi, s = load_cached_x("corpus/%04d_features.p" % i)
+def load_pair(i, engine):
+    xi, s = load_x("corpus/%04d.wav" % i, engine)
     yi = load_y("corpus/%04d.mid" % i, s)
-
     return xi, yi
 
 
-def load_slices(a, b, slice_samples):
+def load_pair_from_cache(i):
+    xi, s = load_cached_x("corpus/%04d_features.p" % i)
+    yi = load_y("corpus/%04d.mid" % i, s)
+    return xi, yi
 
-    # engine = spectrogram.cqt_engine(slice_samples, 60)
+
+def load_slices(a, b, slice_samples, from_cache):
 
     pool = Pool(processes=8)
 
     x = []
     y = []
 
-    xys = pool.map(load_pair, range(a, b))
+    if from_cache:
+        xys = pool.map(load_pair_from_cache, range(a, b))
+        for xi, yi in xys:
+            x.append(xi)
+            y.append(yi)
 
-    for xi, yi in xys:
-        x.append(xi)
-        y.append(yi)
+    else:
+        engine = spectrogram.cqt_engine(slice_samples, 60)
+        for i in range(a, b):
+            sys.stdout.write("%d/%d\r" % (i - a, b - a))
+            sys.stdout.flush()
+            xi, yi = load_pair(i, engine)
+            x.append(xi)
+            y.append(yi)
 
     x = np.concatenate(x, axis=1)
     y = np.concatenate(y, axis=1)
@@ -157,18 +168,19 @@ def run_logistic_regression():
 def run_individual_classifiers():
     sess = tf.InteractiveSession()
 
+    from_cache = True
     start_note = 67
     max_notes = 1
     slice_samples = 512
     features = 660
-    epochs = 200
+    epochs = 100
     notes = range(start_note, start_note + max_notes)
 
     print "Loading training set...."
-    x_train, y_train = load_slices(0, 1000, slice_samples)
+    x_train, y_train = load_slices(0, 800, slice_samples, from_cache)
 
     print "Loading testing set...."
-    x_test, y_test = load_slices(100, 1100, slice_samples)
+    x_test, y_test = load_slices(800, 1000, slice_samples, from_cache)
 
     y_train_1h = np.stack([1 - y_train, y_train], axis=2)
     y_test_1h = np.stack([1 - y_test, y_test], axis=2)
@@ -189,9 +201,9 @@ def run_individual_classifiers():
         w = param_zeros([features, 2])
         b = param_zeros([2])
         y.append(tf.nn.softmax(tf.matmul(x, w) + b))
-        # loss.append(tf.reduce_sum(tf.abs(y[n] - y_[n])))
-        loss.append(tf.reduce_mean(-tf.reduce_sum(y_[i] * tf.log(tf.clip_by_value(y[i], 1e-20, 1.0)), reduction_indices=1)))
-        train_step.append(tf.train.AdamOptimizer(learning_rate=0.1).minimize(loss[i]))
+        l = tf.reduce_mean(-tf.reduce_sum(y_[i] * tf.log(tf.clip_by_value(y[i], 1e-20, 1.0)), reduction_indices=1))
+        loss.append(l)
+        train_step.append(tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss[i]))
 
     sess.run(tf.initialize_all_variables())
 
@@ -214,7 +226,7 @@ def run_individual_classifiers():
 
                 train_step[i].run(feed_dict={x: x_train[start:stop], y_[i]: y_train_n[start:stop]})
 
-            if j + 1 == epochs or (j + 1) % 5 == 0:
+            if j + 1 == epochs or (j + 1) % 20 == 0:
                 sys.stdout.write("NOTE %03d - EPOCH %02d/%d - TRAIN ERROR: %0.16f - TEST ERROR: %0.16f\n" %
                                  (
                                      n,
