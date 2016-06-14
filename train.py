@@ -37,16 +37,14 @@ def train_model(epochs, m, d):
 
 
 def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True):
-    sess = tf.InteractiveSession()
-    d = data.load(train_size, test_size, slice_samples, from_cache, batch_size)
-    m = model.feed_forward_model(d.features, [d.features, d.features])
-    sess.run(tf.initialize_all_variables())
+    with tf.Session() as sess:
+        d = data.load(train_size, test_size, slice_samples, from_cache, batch_size)
+        m = model.feed_forward_model(d.features, [d.features, d.features])
+        sess.run(tf.initialize_all_variables())
+        train_model(epochs, m, d)
+        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
 
-    train_model(epochs, m, d)
-
-    y_pred = m.y.eval(feed_dict={m.x: d.x_test})
     fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
-
     plt.plot(fpr, tpr)
     plt.show()
 
@@ -71,29 +69,29 @@ def produce_prediction(slice_samples, x, y):
 
 def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
                                notes=range(128)):
-    sess = tf.InteractiveSession()
-
     start_note = min(notes)
     max_notes = len(notes)
 
     d = data.load(train_size, test_size, slice_samples, from_cache, batch_size).to_one_hot()
 
-    models = []
+    with tf.Session() as sess:
+        models = []
 
-    for i in range(len(notes)):
-        models.append(model.logistic_regression(d.features))
+        for i in range(len(notes)):
+            models.append(model.logistic_regression(d.features))
 
-    sess.run(tf.initialize_all_variables())
+        sess.run(tf.initialize_all_variables())
 
-    for i in range(len(notes)):
-        n = notes[i]
-        print "NOTE %03d" % n
-        train_model(epochs, models[i], d.to_note(n))
+        for i in range(len(notes)):
+            n = notes[i]
+            print "NOTE %03d" % n
+            train_model(epochs, models[i], d.to_note(n))
 
-    y_pred = np.empty([d.y_test.shape[0], max_notes])
+        y_pred = np.empty([d.y_test.shape[0], max_notes])
 
-    for i in range(len(notes)):
-        y_pred[:, i] = models[i].y.eval(feed_dict={models[i].x: d.x_test})[:, 1]
+        for i in range(len(notes)):
+            y_pred[:, i] = models[i].y.eval(feed_dict={models[i].x: d.x_test}, session=sess)[:, 1]
+
     fpr, tpr, thresholds = roc_curve(d.y_test[:, start_note:start_note+max_notes, 1].flatten(), y_pred.flatten())
 
     plt.plot(fpr, tpr)
@@ -101,5 +99,5 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    # run_individual_classifiers(epochs=100, train_size=800, test_size=200, notes=range(67, 68))
-    run_joint_model(epochs=10, train_size=20, test_size=10)
+    run_individual_classifiers(epochs=50, train_size=200, test_size=50, notes=range(67, 68))
+    # run_joint_model(epochs=500, train_size=800, test_size=200)
