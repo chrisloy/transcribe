@@ -18,14 +18,14 @@ def param_zeros(shape):
     return tf.Variable(tf.zeros(shape), dtype="float32")
 
 
-def feed_forward_model(features, hidden_nodes):
+def feed_forward_model(features, hidden_nodes, output):
 
     x = tf.placeholder(tf.float32, shape=[None, features])
-    y_gold = tf.placeholder(tf.float32, shape=[None, 128])
+    y_gold = tf.placeholder(tf.float32, shape=[None, output])
     previous_nodes = features
     h = x
 
-    for nodes in hidden_nodes + [128]:
+    for nodes in hidden_nodes + [output]:
         w = param_zeros([previous_nodes, nodes])
         b = param_zeros([nodes])
         h = tf.nn.sigmoid(tf.matmul(h, w) + b)

@@ -39,7 +39,7 @@ def train_model(epochs, m, d):
 def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True):
     with tf.Session() as sess:
         d = data.load(train_size, test_size, slice_samples, from_cache, batch_size)
-        m = model.feed_forward_model(d.features, [d.features, d.features])
+        m = model.feed_forward_model(d.features, [d.features, d.features], 128)
         sess.run(tf.initialize_all_variables())
         train_model(epochs, m, d)
         y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
@@ -79,6 +79,7 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
         for i in range(len(notes)):
             models.append(model.logistic_regression(d.features))
+            # models.append(model.feed_forward_model(d.features, [d.features], 2))
 
         sess.run(tf.initialize_all_variables())
 
@@ -99,5 +100,5 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    run_individual_classifiers(epochs=50, train_size=200, test_size=50, notes=range(67, 68))
+    run_individual_classifiers(epochs=500, train_size=800, test_size=200, notes=range(67, 68))
     # run_joint_model(epochs=500, train_size=800, test_size=200)
