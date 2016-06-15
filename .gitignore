@@ -1,5 +1,6 @@
 *.pyc
 output
+mono_piano
 .DS_Store
 .idea
 corpus
