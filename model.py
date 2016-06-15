@@ -18,7 +18,7 @@ def param_zeros(shape):
     return tf.Variable(tf.zeros(shape), dtype="float32")
 
 
-def feed_forward_model(features, hidden_nodes, output):
+def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(), loss_function="mse"):
 
     x = tf.placeholder(tf.float32, shape=[None, features])
     y_gold = tf.placeholder(tf.float32, shape=[None, output])
@@ -32,24 +32,16 @@ def feed_forward_model(features, hidden_nodes, output):
         previous_nodes = nodes
 
     y = h
-
-    loss = tf.reduce_mean(tf.square(y - y_gold))
-    train_step = tf.train.AdamOptimizer().minimize(loss)
-
-    return Model(x, y, y_gold, loss, train_step)
-
-
-def logistic_regression(features):
-
-    x = tf.placeholder(tf.float32, shape=[None, features])
-    y_gold = tf.placeholder(tf.float32, shape=[None, 2])
-
-    w = param_zeros([features, 2])
-    b = param_zeros([2])
-    y = tf.nn.softmax(tf.matmul(x, w) + b)
-
-    loss = tf.reduce_mean(-tf.reduce_sum(y_gold * tf.log(tf.clip_by_value(y, 1e-20, 1.0)), reduction_indices=1))
-    train_step = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss)
+    loss = get_loss_function(loss_function, y, y_gold)
+    train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
     return Model(x, y, y_gold, loss, train_step)
 
+
+def get_loss_function(loss_function, y, y_gold):
+    if loss_function == "mse":
+        return tf.reduce_mean(tf.square(y - y_gold))
+    elif loss_function == "cross_entropy":
+        return tf.reduce_mean(-tf.reduce_sum(y_gold * tf.log(tf.clip_by_value(y, 1e-20, 1.0)), reduction_indices=1))
+    else:
+        raise NameError("Unknown loss function %s" % loss_function)

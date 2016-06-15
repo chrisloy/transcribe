@@ -25,7 +25,7 @@ def train_model(epochs, m, d):
                 m.y_gold: d.y_train[start:stop, :]
             })
 
-        if j + 1 == epochs or (j + 1) % 20 == 0:
+        if j + 1 == epochs or (j + 1) % 10 == 0:
             sys.stdout.write("EPOCH %02d/%d - TRAIN ERROR: %0.16f - TEST ERROR: %0.16f\n" %
                              (
                                  j + 1,
@@ -36,10 +36,25 @@ def train_model(epochs, m, d):
             sys.stdout.flush()
 
 
-def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True):
+def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
+                    corpus="corpus"):
     with tf.Session() as sess:
-        d = data.load(train_size, test_size, slice_samples, from_cache, batch_size)
-        m = model.feed_forward_model(d.features, [d.features, d.features], 128)
+        d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus)
+        m = model.feed_forward_model(d.features, 128, hidden_nodes=[d.features, d.features])
+        sess.run(tf.initialize_all_variables())
+        train_model(epochs, m, d)
+        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+
+    fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
+    plt.plot(fpr, tpr)
+    plt.show()
+
+
+def run_one_hot_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
+                            corpus="corpus"):
+    with tf.Session() as sess:
+        d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus).to_one_hot()
+        m = model.feed_forward_model(d.features, 129, loss_function="cross_entropy", learning_rate=0.1)
         sess.run(tf.initialize_all_variables())
         train_model(epochs, m, d)
         y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
@@ -68,18 +83,17 @@ def produce_prediction(slice_samples, x, y):
 
 
 def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
-                               notes=range(128)):
+                               notes=range(128), corpus="corpus"):
     start_note = min(notes)
     max_notes = len(notes)
 
-    d = data.load(train_size, test_size, slice_samples, from_cache, batch_size).to_one_hot()
+    d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus).to_binary_one_hot()
 
     with tf.Session() as sess:
         models = []
 
         for i in range(len(notes)):
-            models.append(model.logistic_regression(d.features))
-            # models.append(model.feed_forward_model(d.features, [d.features], 2))
+            models.append(model.feed_forward_model(d.features, 2))
 
         sess.run(tf.initialize_all_variables())
 
@@ -100,5 +114,6 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    run_individual_classifiers(epochs=500, train_size=800, test_size=200, notes=range(67, 68))
+    # run_individual_classifiers(epochs=200, train_size=300, test_size=100, notes=[67], corpus="mono_piano")
+    run_one_hot_joint_model(epochs=200, train_size=400, test_size=100, corpus="mono_piano")
     # run_joint_model(epochs=500, train_size=800, test_size=200)
