@@ -11,14 +11,14 @@ class Model:
 
 
 def param_norm(shape):
-    return tf.Variable(tf.random_normal(shape, 0.35), dtype="float32")
+    return tf.Variable(tf.truncated_normal(shape, 0.1), dtype="float32")
 
 
 def param_zeros(shape):
     return tf.Variable(tf.zeros(shape), dtype="float32")
 
 
-def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(), loss_function="mse"):
+def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(), loss_function="mse", dropout=False):
 
     x = tf.placeholder(tf.float32, shape=[None, features])
     y_gold = tf.placeholder(tf.float32, shape=[None, output])
@@ -29,6 +29,8 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
         w = param_zeros([previous_nodes, nodes])
         b = param_zeros([nodes])
         h = tf.nn.sigmoid(tf.matmul(h, w) + b)
+        if dropout:
+            h = tf.nn.dropout(h, 0.7)  # 0.8? 0.5?
         previous_nodes = nodes
 
     y = h
