@@ -50,7 +50,7 @@ def load_cached_x(cache_file):
 
 def load_y(midi_file, slices):
     m = midi.read_midifile(midi_file)
-    return slicer.slice_midi_into(m, slices)
+    return slicer.slice_midi_into(m, slices)[21:109, :]
 
 
 def load_pair(i, engine, corpus):
@@ -96,7 +96,8 @@ def load_slices(a, b, slice_samples, from_cache, corpus):
 def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus):
     file_ext = ".p" if from_cache else ".wav"
     corpus_length = len(filter(lambda x: x.endswith(file_ext), os.listdir(corpus)))
-    assert train_size + test_size <= corpus_length
+    assert train_size + test_size <= corpus_length, "Cannot produce %d examples from corpus of size %d" % (
+                                                    train_size + test_size, corpus_length)
     print "Loading training set...."
     x_train, y_train = load_slices(0, train_size, slice_samples, from_cache, corpus)
     print "Loading testing set...."
