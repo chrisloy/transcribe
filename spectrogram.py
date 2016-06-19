@@ -65,12 +65,17 @@ def cqt_engine(slice_samples, bins_per_octave):
 def spectrogram_cqt(file_name, engine):
     audio, _ = load_mono(file_name)
     result = np.abs(engine.processAudio(audio.reshape(1, -1).astype("float64"))["cqt"])
+    # TODO result[result < 0.0001] = 0
     return np.transpose(result / np.max(result))
 
 
 if __name__ == "__main__":
-    import preprocess
-    s = preprocess.refresh("corpus/0003_features.p")
+    # import preprocess
+    # s = preprocess.refresh("corpus/0003_features.p")
+
+    eng = cqt_engine(512, 60)
+    s = spectrogram_cqt("mono_piano_simple/0005.wav", eng)
     x_label = np.arange(s.shape[1])
     y_label = np.arange(60 * 11)
+
     plot(s.astype("float32"), x_label, y_label)
