@@ -8,6 +8,16 @@ class Model:
         self.y_gold = y_gold
         self.loss = loss
         self.train_step = train_step
+        self.report_name = "ERROR"
+        self.report_target = loss
+
+    def set_report(self, name, target):
+        self.report_name = name
+        self.report_target = target
+
+    def accuracy(self):
+        correct_prediction = tf.equal(tf.argmax(self.y, 1), tf.argmax(self.y_gold, 1))
+        return tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 
 def param_norm(shape):
@@ -20,20 +30,22 @@ def param_zeros(shape):
 
 def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(), loss_function="mse", dropout=False):
 
-    x = tf.placeholder(tf.float32, shape=[None, features])
-    y_gold = tf.placeholder(tf.float32, shape=[None, output])
+    x = tf.placeholder(tf.float32, shape=[None, features], name="x")
+    y_gold = tf.placeholder(tf.float32, shape=[None, output], name="y_gold")
     previous_nodes = features
-    h = x
+    act = None
+    trans = x
 
     for nodes in hidden_nodes + [output]:
         w = param_zeros([previous_nodes, nodes])
         b = param_zeros([nodes])
-        h = tf.nn.sigmoid(tf.matmul(h, w) + b)
+        act = tf.matmul(trans, w) + b
+        trans = tf.nn.sigmoid(act)
         if dropout:
-            h = tf.nn.dropout(h, 0.7)  # 0.8? 0.5?
+            trans = tf.nn.dropout(trans, 0.7)  # 0.8? 0.5?
         previous_nodes = nodes
 
-    y = h
+    y = tf.nn.softmax(act, name="y")  # TODO
     loss = get_loss_function(loss_function, y, y_gold)
     train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
