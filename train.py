@@ -11,29 +11,32 @@ from matplotlib import pyplot as plt
 from os import devnull
 
 
-def train_model(epochs, m, d):
-    for j in range(epochs):
-        for k in range(d.batches):
-            sys.stdout.write("EPOCH %02d/%d - BATCH %03d/%d\r" % (j + 1, epochs, k + 1, d.batches))
-            sys.stdout.flush()
-
-            start = k * d.batch_size
-            stop = (k + 1) * d.batch_size
-
-            m.train_step.run(feed_dict={
-                m.x:      d.x_train[start:stop, :],
-                m.y_gold: d.y_train[start:stop, :]
-            })
-
-        if j + 1 == epochs or (j + 1) % 10 == 0:
-            sys.stdout.write("EPOCH %02d/%d - TRAIN ERROR: %0.16f - TEST ERROR: %0.16f\n" %
+def train_model(epochs, m, d, report_epochs=10):
+    for j in range(epochs + 1):
+        if j == epochs or j % report_epochs == 0:
+            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.16f - TEST %s: %0.16f\n" %
                              (
-                                 j + 1,
+                                 j,
                                  epochs,
-                                 m.loss.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train}),
-                                 m.loss.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test})
+                                 m.report_name,
+                                 m.report_target.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train}),
+                                 m.report_name,
+                                 m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test})
                              ))
             sys.stdout.flush()
+
+        if j < epochs:
+            for k in range(d.batches):
+                sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, epochs, k + 1, d.batches))
+                sys.stdout.flush()
+
+                start = k * d.batch_size
+                stop = (k + 1) * d.batch_size
+
+                m.train_step.run(feed_dict={
+                    m.x:      d.x_train[start:stop, :],
+                    m.y_gold: d.y_train[start:stop, :]
+                })
 
 
 def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
@@ -54,14 +57,21 @@ def run_one_hot_joint_model(epochs, train_size, test_size, slice_samples=512, ba
                             corpus="corpus"):
     with tf.Session() as sess:
         d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus).to_one_hot()
-        m = model.feed_forward_model(d.features, 129, loss_function="cross_entropy", learning_rate=0.1)
+        m = model.feed_forward_model(
+                d.features,
+                89,
+                hidden_nodes=[d.features * 2, d.features * 1.5, d.features, d.features * 0.5, d.features * 0.2],
+                loss_function="cross_entropy",
+                learning_rate=0.5)
+        m.set_report("ACCURACY", m.accuracy())
         sess.run(tf.initialize_all_variables())
         train_model(epochs, m, d)
+
         y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
 
-    fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
-    plt.plot(fpr, tpr)
-    plt.show()
+        fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
+        plt.plot(fpr, tpr)
+        plt.show()
 
 
 def produce_prediction(slice_samples, x, y):
@@ -115,5 +125,5 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 if __name__ == "__main__":
     # run_individual_classifiers(epochs=200, train_size=300, test_size=100, notes=[67], corpus="mono_piano")
-    run_one_hot_joint_model(epochs=200, train_size=400, test_size=100, corpus="mono_piano")
+    run_one_hot_joint_model(epochs=100, train_size=400, test_size=100, corpus="mono_piano_simple")
     # run_joint_model(epochs=500, train_size=800, test_size=200)
