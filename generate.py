@@ -67,37 +67,14 @@ def tracking_melody(measures, measure_length, key, lower, upper, rest_probabilit
     events = sorted(events[0:2*notes])
     start_stops = pairs(map(lambda e: e * measure_length, events))
     start, stop = start_stops[0]
-    melody = [Note(start, stop, random.choice(key), velocity())]
+    melody = [Note(0, stop, random.choice(key), velocity())]
     for start, stop in start_stops[1:]:
         if random.random() > rest_probability:
             last_note = melody[-1].pitch
+            last_stop = melody[-1].stop
             note = random.choice([last_note, shift(last_note, key, 1), shift(last_note, key, -1)])
-            melody.append(Note(start, stop, note, velocity()))
+            melody.append(Note(last_stop, stop, note, velocity()))
     return melody
-
-
-def near(last_x, xs):
-    last_i = xs.index(last_x)
-    new_i = min(max(last_i + int(random.gauss(0, 2)), len(xs)-1), 0)
-    return xs[new_i]
-
-
-def natural_melody(measures, measure_length, key, velocity=random_velocity):
-    initial_length = random.choice([1, 2, 3]) * measure_length
-    notes = [Note(0, initial_length, random.choice(key), velocity())]
-    while True:
-        length_so_far = sum(map(lambda n: n.length(measure_length), notes))
-        print length_so_far
-        if length_so_far > measures:
-            return notes[0:-1]
-        last = notes[-1]
-        note = Note(
-            last.stop,
-            near(last.length(measure_length), [1, 2, 3]) * measure_length + last.stop,
-            near(last.pitch, key),
-            near(last.velocity, PIANO_NOTES)
-        )
-        notes.append(note)
 
 
 def note_to_event_pair(note):
@@ -114,7 +91,7 @@ def random_track(measures, measure_length, polyphony, velocity, rest_probability
     for x in range(1, melodies+1):
         notes += tracking_melody(measures, measure_length, key, lower, upper, rest_probability, velocity=velocity)
     events = reduce(lambda a, b: a + b, map(note_to_event_pair, notes))
-    events = sorted(events, lambda a, b: 1 if b.tick < a.tick else -1)
+    events = sorted(events, lambda a, b: 1 if b.tick < a.tick else 0 if b.tick == a.tick else -1)
     last_tick = 0
     for event in events:
         new_tick = event.tick
