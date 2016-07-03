@@ -40,7 +40,8 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
         w = param_zeros([previous_nodes, nodes])
         b = param_zeros([nodes])
         act = tf.matmul(trans, w) + b
-        trans = tf.nn.sigmoid(act)
+        # trans = tf.nn.sigmoid(act)
+        trans = tf.nn.relu(act)
         if dropout:
             trans = tf.nn.dropout(trans, 0.7)  # 0.8? 0.5?
         previous_nodes = nodes
