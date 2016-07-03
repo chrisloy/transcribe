@@ -1,11 +1,15 @@
 import data
 import generate
+import json
 import midi
 import model
 import numpy as np
 import slicer
 import sys
 import tensorflow as tf
+import uuid
+from collections import defaultdict
+from domain import Params
 from sklearn.metrics import roc_curve
 from matplotlib import pyplot as plt
 from os import devnull
@@ -53,25 +57,58 @@ def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size
     plt.show()
 
 
-def run_one_hot_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
-                            corpus="corpus"):
+def run_one_hot_joint_model(p, from_cache=True):
     with tf.Session() as sess:
-        d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus).to_one_hot()
+        d = data.load(p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus).to_one_hot()
         m = model.feed_forward_model(
                 d.features,
                 89,
-                hidden_nodes=[d.features * 2, d.features * 1.5, d.features, d.features * 0.5, d.features * 0.2],
+                hidden_nodes=p.hidden_nodes,
                 loss_function="cross_entropy",
-                learning_rate=0.5)
+                learning_rate=0.02)
         m.set_report("ACCURACY", m.accuracy())
+
         sess.run(tf.initialize_all_variables())
-        train_model(epochs, m, d)
+        train_model(p.epochs, m, d, report_epochs=5)
+
+        save(sess, m, d, p)
 
         y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+
+        gold = d.y_test.argmax(axis=1)
+        pred = y_pred.argmax(axis=1)
+
+        print "GOLD COUNTS"
+        print counts(gold)
+
+        print "PREDICTED COUNTS"
+        print counts(pred)
 
         fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
         plt.plot(fpr, tpr)
         plt.show()
+
+
+def counts(nums):
+    c = defaultdict(int)
+    for i in nums:
+        c[i] += 1
+    return c
+
+
+def save(sess, m, d, p):
+    graph_id = str(uuid.uuid4())
+    print "Saving graph %s..." % graph_id
+    tf.train.write_graph(sess.graph_def, 'graphs', '%s-graph.pbtxt' % graph_id)
+    saver = tf.train.Saver()
+    saver.save(sess, "graphs/%s-variables.ckpt" % graph_id)
+    results = {
+        "train_err": float(m.report_target.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train})),
+        "test_err": float(m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test}))
+    }
+    with open('graphs/%s-meta.json' % graph_id, 'w') as outfile:
+        json.dump({"params": p.to_dict(), "results": results}, outfile)
+    print "Done"
 
 
 def produce_prediction(slice_samples, x, y):
@@ -124,6 +161,5 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    # run_individual_classifiers(epochs=200, train_size=300, test_size=100, notes=[67], corpus="mono_piano")
-    run_one_hot_joint_model(epochs=100, train_size=400, test_size=100, corpus="mono_piano_simple")
-    # run_joint_model(epochs=500, train_size=800, test_size=200)
+    p = Params(epochs=10, train_size=40, test_size=10, corpus="mono_piano_simple")
+    run_one_hot_joint_model(p)
