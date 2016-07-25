@@ -20,12 +20,12 @@ class Model:
         return tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 
-def param_norm(shape):
-    return tf.Variable(tf.truncated_normal(shape, 0.1), dtype="float32")
+def param_norm(shape, name):
+    return tf.Variable(tf.truncated_normal(shape, 0.1), dtype="float32", name=name)
 
 
-def param_zeros(shape):
-    return tf.Variable(tf.zeros(shape), dtype="float32")
+def param_zeros(shape, name):
+    return tf.Variable(tf.zeros(shape), dtype="float32", name=name)
 
 
 def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(), loss_function="mse", dropout=False):
@@ -36,9 +36,12 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
     act = None
     trans = x
 
+    depth = 0
+
     for nodes in hidden_nodes + [output]:
-        w = param_zeros([previous_nodes, nodes])
-        b = param_zeros([nodes])
+        depth += 1
+        w = param_zeros([previous_nodes, nodes], "W%d" % depth)
+        b = param_zeros([nodes], "b%d" % depth)
         act = tf.matmul(trans, w) + b
         # trans = tf.nn.sigmoid(act)
         trans = tf.nn.relu(act)
