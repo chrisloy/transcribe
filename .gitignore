@@ -1,5 +1,6 @@
 *.pyc
 output
+five_notes
 mono_piano*
 .DS_Store
 .idea

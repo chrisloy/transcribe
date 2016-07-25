@@ -26,4 +26,4 @@ if __name__ == "__main__":
         sys.stdout.write("%d/%d\r" % (i + 1, corpus_length))
         sys.stdout.flush()
         cache_features("%s/%04d.wav" % (corpus, i), "%s/%04d_features.p" % (corpus, i), e)
-    print "Done"
+    print "\nDone"
