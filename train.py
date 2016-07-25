@@ -147,5 +147,13 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    params = Params(epochs=100, train_size=70, test_size=30, corpus="five_notes", learning_rate=0.02, outputs=88)
-    run_joint_model(params)
+    run_joint_model(
+        Params(
+            epochs=100,
+            train_size=400,
+            test_size=100,
+            corpus="five_piano_simple",
+            learning_rate=0.02,
+            outputs=88
+        )
+    )
