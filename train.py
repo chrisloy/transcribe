@@ -42,13 +42,14 @@ def train_model(epochs, m, d, report_epochs=10):
                 })
 
 
-def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
-                    corpus="corpus"):
+def run_joint_model(p, from_cache=True):
+    assert p.outputs == 88
     with tf.Session() as sess:
-        d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus)
-        m = model.feed_forward_model(d.features, 128, hidden_nodes=[d.features, d.features])
+        d = data.load(p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus)
+        m = model.feed_forward_model(d.features, p.outputs, hidden_nodes=p.hidden_nodes, learning_rate=p.learning_rate)
         sess.run(tf.initialize_all_variables())
-        train_model(epochs, m, d)
+        train_model(p.epochs, m, d)
+        persist.save(sess, m, d, p)
         y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
 
     fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
@@ -57,14 +58,15 @@ def run_joint_model(epochs, train_size, test_size, slice_samples=512, batch_size
 
 
 def run_one_hot_joint_model(p, from_cache=True):
+    assert p.outputs == 89
     with tf.Session() as sess:
         d = data.load(p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus).to_one_hot()
         m = model.feed_forward_model(
                 d.features,
-                89,
+                p.outputs,
                 hidden_nodes=p.hidden_nodes,
                 loss_function="cross_entropy",
-                learning_rate=0.02)
+                learning_rate=p.learning_rate)
         m.set_report("ACCURACY", m.accuracy())
 
         sess.run(tf.initialize_all_variables())
@@ -145,5 +147,5 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    params = Params(epochs=10, train_size=40, test_size=10, corpus="mono_piano_simple")
-    run_one_hot_joint_model(params)
+    params = Params(epochs=100, train_size=70, test_size=30, corpus="five_notes", learning_rate=0.02, outputs=88)
+    run_joint_model(params)

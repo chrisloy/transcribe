@@ -2,12 +2,12 @@ import data
 import domain
 import json
 import model
-import uuid
+import namer
 import tensorflow as tf
 
 
 def save(sess, m, d, p):
-    graph_id = str(uuid.uuid4())
+    graph_id = namer.new_name()
     print "Saving variables..."
     saver = tf.train.Saver()
     saver.save(sess, "graphs/%s-variables.ckpt" % graph_id)
@@ -29,7 +29,7 @@ def load(sess, graph_id):
     d = data.load(p.train_size, p.test_size, p.slice_samples, True, p.batch_size, p.corpus).to_one_hot()
     m = model.feed_forward_model(
         d.features,
-        89,
+        p.outputs,
         hidden_nodes=p.hidden_nodes,
         loss_function="cross_entropy",
         learning_rate=0.02)
