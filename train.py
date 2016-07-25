@@ -1,13 +1,12 @@
 import data
 import generate
-import json
 import midi
 import model
 import numpy as np
+import persist
 import slicer
 import sys
 import tensorflow as tf
-import uuid
 from collections import defaultdict
 from domain import Params
 from sklearn.metrics import roc_curve
@@ -71,7 +70,7 @@ def run_one_hot_joint_model(p, from_cache=True):
         sess.run(tf.initialize_all_variables())
         train_model(p.epochs, m, d, report_epochs=5)
 
-        save(sess, m, d, p)
+        persist.save(sess, m, d, p)
 
         y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
 
@@ -94,21 +93,6 @@ def counts(nums):
     for i in nums:
         c[i] += 1
     return c
-
-
-def save(sess, m, d, p):
-    graph_id = str(uuid.uuid4())
-    print "Saving graph %s..." % graph_id
-    tf.train.write_graph(sess.graph_def, 'graphs', '%s-graph.pbtxt' % graph_id)
-    saver = tf.train.Saver()
-    saver.save(sess, "graphs/%s-variables.ckpt" % graph_id)
-    results = {
-        "train_err": float(m.report_target.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train})),
-        "test_err": float(m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test}))
-    }
-    with open('graphs/%s-meta.json' % graph_id, 'w') as outfile:
-        json.dump({"params": p.to_dict(), "results": results}, outfile)
-    print "Done"
 
 
 def produce_prediction(slice_samples, x, y):
@@ -161,5 +145,5 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    p = Params(epochs=10, train_size=40, test_size=10, corpus="mono_piano_simple")
-    run_one_hot_joint_model(p)
+    params = Params(epochs=10, train_size=40, test_size=10, corpus="mono_piano_simple")
+    run_one_hot_joint_model(params)
