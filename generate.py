@@ -1,7 +1,7 @@
+import os
 import midi
 import random
 from subprocess import call
-from os import devnull
 
 
 class Note(object):
@@ -121,10 +121,13 @@ def generate_pair(num, out_file, corpus_name, polyphony, velocity):
 
 
 if __name__ == "__main__":
-    of = open(devnull, 'w')
-    number = 500
-    cn = "mono_piano_simple"
-    p = fixed_polyphony(1)
+    of = open(os.devnull, 'w')
+    number = 100
+    cn = "five_notes"
+    if not os.path.exists(cn):
+        os.makedirs(cn)
+        print "Created directory %s" % cn
+    p = fixed_polyphony(5)
     v = fixed_velocity(96)
     for n in range(0, number):
         generate_pair(n, of, cn, p, v)
