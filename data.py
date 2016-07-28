@@ -7,6 +7,7 @@ import spectrogram
 import sys
 from functools import partial
 from multiprocessing import Pool
+from sklearn.preprocessing import PolynomialFeatures
 
 
 class Data:
@@ -37,21 +38,28 @@ class Data:
 
     def to_padded(self, n):
 
-        total_layers = 2 * n + 1
+        if n > 0:
+            total_layers = 2 * n + 1
 
-        def pad_x(x):
-            (slices, initial_features) = np.shape(x)
-            longer = np.append(x, np.zeros((total_layers, initial_features)), axis=0)
-            return np.tile(longer, (1, total_layers))[n:n+slices, :]
+            def pad_x(x):
+                (slices, initial_features) = np.shape(x)
+                longer = np.vstack((x, np.zeros((total_layers, initial_features))))
+                return np.tile(longer, (1, total_layers))[n:n+slices, :]
 
-        return Data(
-            pad_x(self.x_train),
-            self.y_train,
-            pad_x(self.x_test),
-            self.y_test,
-            self.batches,
-            self.batch_size
-        )
+            return Data(
+                pad_x(self.x_train),
+                self.y_train,
+                pad_x(self.x_test),
+                self.y_test,
+                self.batches,
+                self.batch_size
+            )
+        else:
+            return self
+
+
+def poly_kernel(x):
+    return PolynomialFeatures(degree=2, interaction_only=True).fit_transform(x)
 
 
 def to_x_and_slices(data):
