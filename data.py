@@ -57,6 +57,12 @@ class Data:
         else:
             return self
 
+    def to_shuffled(self):
+        i = np.random.permutation(np.shape(self.x_train)[0])
+        self.x_train = self.x_train[i, :]
+        self.y_train = self.y_train[i, :]
+        return self
+
 
 def poly_kernel(x):
     return PolynomialFeatures(degree=2, interaction_only=True).fit_transform(x)
