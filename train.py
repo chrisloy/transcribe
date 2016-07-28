@@ -63,7 +63,7 @@ def run_one_hot_joint_model(p, from_cache=True):
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-        ).to_one_hot().to_padded(p.padding)
+        ).to_one_hot().to_padded(p.padding).to_shuffled()
         m = model.feed_forward_model(
                 d.features,
                 p.outputs() + 1,
@@ -161,14 +161,14 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 if __name__ == "__main__":
     run_one_hot_joint_model(
         Params(
-            epochs=800,
+            epochs=500,
             train_size=40,
             test_size=10,
-            hidden_nodes=[],
+            hidden_nodes=[130],
             corpus="mono_piano_one_octave",
-            learning_rate=0.005,
+            learning_rate=0.05,
             lower=60,
             upper=72,
-            padding=1
+            padding=3
         )
     )
