@@ -20,7 +20,7 @@ PIANO_NOTES = range(21, 109)
 NUM_NOTES = len(PIANO_NOTES)  # == 88
 
 
-def random_key():
+def random_key(notes):
     scale = random.choice([
         [0, 2, 4, 5, 7, 9, 11],  # Major
         [0, 2, 4, 5, 7, 9, 10],  # Major 7th
@@ -28,8 +28,8 @@ def random_key():
         [0, 2, 3, 5, 7, 8, 10]   # Minor 7th
     ])
     offset = random.randint(0, 11)
-    notes = map(lambda x: (x + offset) % 12, scale)
-    return filter(lambda x: x % 12 in notes, PIANO_NOTES)
+    ns = map(lambda x: (x + offset) % 12, scale)
+    return filter(lambda x: x % 12 in ns, notes)
 
 
 def pairs(l):
@@ -83,14 +83,14 @@ def note_to_event_pair(note):
     return [on, off]
 
 
-def random_track(measures, measure_length, polyphony, velocity, rest_probability):
+def random_track(measures, measure_length, polyphony, velocity, rest_probability, notes):
     track = midi.Track()
-    key = random_key()
-    notes = []
+    key = random_key(notes)
+    ns = []
     melodies, lower, upper = polyphony()
     for x in range(1, melodies+1):
-        notes += tracking_melody(measures, measure_length, key, lower, upper, rest_probability, velocity=velocity)
-    events = reduce(lambda a, b: a + b, map(note_to_event_pair, notes))
+        ns += tracking_melody(measures, measure_length, key, lower, upper, rest_probability, velocity=velocity)
+    events = reduce(lambda a, b: a + b, map(note_to_event_pair, ns))
     events = sorted(events, lambda a, b: 1 if b.tick < a.tick else 0 if b.tick == a.tick else -1)
     last_tick = 0
     for event in events:
@@ -101,9 +101,9 @@ def random_track(measures, measure_length, polyphony, velocity, rest_probability
     return track
 
 
-def random_pattern(polyphony, velocity, rest_probability=0.05):
+def random_pattern(polyphony, velocity, notes, rest_probability=0.05):
     pattern = midi.Pattern()
-    pattern.append(random_track(100, 50, polyphony, velocity, rest_probability))
+    pattern.append(random_track(100, 50, polyphony, velocity, rest_probability, notes))
     eot = midi.EndOfTrackEvent(tick=1)
     pattern[0].append(eot)
     return pattern
@@ -113,22 +113,22 @@ def write_wav_file(mid_file_name, wav_file_name, out_file):
     call(["/usr/local/bin/timidity", mid_file_name, "-Ow", "-o", wav_file_name], stdout=out_file, stderr=out_file)
 
 
-def generate_pair(num, out_file, corpus_name, polyphony, velocity):
+def generate_pair(num, out_file, corpus_name, polyphony, velocity, notes=PIANO_NOTES):
     mid_file_name = "%s/%04d.mid" % (corpus_name, num)
     wav_file_name = "%s/%04d.wav" % (corpus_name, num)
-    midi.write_midifile(mid_file_name, random_pattern(polyphony, velocity))
+    midi.write_midifile(mid_file_name, random_pattern(polyphony, velocity, notes))
     write_wav_file(mid_file_name, wav_file_name, out_file)
 
 
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
-    number = 500
-    cn = "five_piano_simple"
+    number = 50
+    cn = "mono_piano_one_octave"
     if not os.path.exists(cn):
         os.makedirs(cn)
         print "Created directory %s" % cn
-    p = fixed_polyphony(5)
+    p = fixed_polyphony(1)
     v = fixed_velocity(96)
     for n in range(0, number):
-        generate_pair(n, of, cn, p, v)
+        generate_pair(n, of, cn, p, v, notes=range(60, 72))
         print "Completed %d of %d in [%s]" % (n + 1, number, cn)

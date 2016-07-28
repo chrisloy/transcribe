@@ -9,12 +9,13 @@ import sys
 import tensorflow as tf
 from collections import defaultdict
 from domain import Params
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, confusion_matrix
 from matplotlib import pyplot as plt
 from os import devnull
 
 
 def train_model(epochs, m, d, report_epochs=10):
+    print "Training model with %d features..." % d.features
     for j in range(epochs + 1):
         if j == epochs or j % report_epochs == 0:
             sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.16f - TEST %s: %0.16f\n" %
@@ -43,9 +44,9 @@ def train_model(epochs, m, d, report_epochs=10):
 
 
 def run_joint_model(p, from_cache=True):
-    assert p.outputs == 88
+    assert p.outputs() == 88
     with tf.Session() as sess:
-        d = data.load(p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus)
+        d = data.load(p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper)
         m = model.feed_forward_model(d.features, p.outputs, hidden_nodes=p.hidden_nodes, learning_rate=p.learning_rate)
         sess.run(tf.initialize_all_variables())
         train_model(p.epochs, m, d)
@@ -58,36 +59,47 @@ def run_joint_model(p, from_cache=True):
 
 
 def run_one_hot_joint_model(p, from_cache=True):
-    assert p.outputs == 89
+    assert p.outputs() == 12
     with tf.Session() as sess:
-        d = data.load(p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus).to_one_hot()
+        d = data.load(
+            p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
+        ).to_one_hot().to_padded(p.padding)
         m = model.feed_forward_model(
                 d.features,
-                p.outputs,
+                p.outputs() + 1,
                 hidden_nodes=p.hidden_nodes,
                 loss_function="cross_entropy",
                 learning_rate=p.learning_rate)
         m.set_report("ACCURACY", m.accuracy())
 
         sess.run(tf.initialize_all_variables())
-        train_model(p.epochs, m, d, report_epochs=5)
+        train_model(p.epochs, m, d, report_epochs=50)
 
         persist.save(sess, m, d, p)
 
-        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+        print "Training stats:"
+        report_stats(d.x_train, d.y_train, m, sess)
 
-        gold = d.y_test.argmax(axis=1)
-        pred = y_pred.argmax(axis=1)
+        print "Testing stats:"
+        report_stats(d.x_test, d.y_test, m, sess)
 
-        print "GOLD COUNTS"
-        print counts(gold)
 
-        print "PREDICTED COUNTS"
-        print counts(pred)
+def report_stats(x, y, m, sess):
+    y_pred = m.y.eval(feed_dict={m.x: x}, session=sess)
+    gold = y.argmax(axis=1)
+    pred = y_pred.argmax(axis=1)
+    print "GOLD COUNTS"
+    print counts(gold)
+    print "PREDICTED COUNTS"
+    print counts(pred)
+    print confusion_matrix(gold, pred, range(13))
 
-        fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
-        plt.plot(fpr, tpr)
-        plt.show()
+
+def show_roc_curve(x, y, m, sess):
+    y_pred = m.y.eval(feed_dict={m.x: x}, session=sess)
+    fpr, tpr, thresholds = roc_curve(y.flatten(), y_pred.flatten())
+    plt.plot(fpr, tpr)
+    plt.show()
 
 
 def counts(nums):
@@ -120,7 +132,7 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
     start_note = min(notes)
     max_notes = len(notes)
 
-    d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus).to_binary_one_hot()
+    d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus, 1, 128).to_binary_one_hot()
 
     with tf.Session() as sess:
         models = []
@@ -147,13 +159,16 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 
 
 if __name__ == "__main__":
-    run_joint_model(
+    run_one_hot_joint_model(
         Params(
-            epochs=100,
-            train_size=400,
-            test_size=100,
-            corpus="five_piano_simple",
-            learning_rate=0.02,
-            outputs=88
+            epochs=800,
+            train_size=40,
+            test_size=10,
+            hidden_nodes=[],
+            corpus="mono_piano_one_octave",
+            learning_rate=0.005,
+            lower=60,
+            upper=72,
+            padding=1
         )
     )
