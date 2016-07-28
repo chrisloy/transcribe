@@ -59,7 +59,7 @@ def run_joint_model(p, from_cache=True):
 
 
 def run_one_hot_joint_model(p, from_cache=True):
-    assert p.outputs() == 12
+    assert p.outputs() == 88
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
@@ -73,7 +73,7 @@ def run_one_hot_joint_model(p, from_cache=True):
         m.set_report("ACCURACY", m.accuracy())
 
         sess.run(tf.initialize_all_variables())
-        train_model(p.epochs, m, d, report_epochs=50)
+        train_model(p.epochs, m, d, report_epochs=5)
 
         persist.save(sess, m, d, p)
 
@@ -93,12 +93,23 @@ def report_stats(x, y, m, sess):
     print "PREDICTED COUNTS"
     print counts(pred)
     print confusion_matrix(gold, pred, range(13))
+    plot_confusion_heat_map(gold, pred)
 
 
 def show_roc_curve(x, y, m, sess):
     y_pred = m.y.eval(feed_dict={m.x: x}, session=sess)
     fpr, tpr, thresholds = roc_curve(y.flatten(), y_pred.flatten())
     plt.plot(fpr, tpr)
+    plt.show()
+
+
+def plot_confusion_heat_map(gold, pred):
+    matrix = confusion_matrix(gold, pred, range(89))
+    print matrix.shape
+    plt.pcolormesh(range(matrix.shape[0]), range(matrix.shape[0]), matrix)
+    plt.ylabel('Y')
+    plt.xlabel('X')
+    plt.colorbar()
     plt.show()
 
 
@@ -161,14 +172,14 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
 if __name__ == "__main__":
     run_one_hot_joint_model(
         Params(
-            epochs=500,
-            train_size=40,
+            epochs=100,
+            train_size=90,
             test_size=10,
-            hidden_nodes=[130],
-            corpus="mono_piano_one_octave",
+            hidden_nodes=[],
+            corpus="mono_piano_simple",
             learning_rate=0.05,
-            lower=60,
-            upper=72,
-            padding=3
+            lower=21,
+            upper=109,
+            padding=0
         )
     )
