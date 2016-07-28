@@ -39,12 +39,13 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
     depth = 0
 
     for nodes in hidden_nodes + [output]:
+        print "%d --> %d" % (previous_nodes, nodes)
         depth += 1
-        w = param_zeros([previous_nodes, nodes], "W%d" % depth)
-        b = param_zeros([nodes], "b%d" % depth)
+        w = param_norm([previous_nodes, nodes], "W%d" % depth)
+        b = param_norm([nodes], "b%d" % depth)
         act = tf.matmul(trans, w) + b
-        # trans = tf.nn.sigmoid(act)
-        trans = tf.nn.relu(act)
+        trans = tf.nn.sigmoid(act)
+        # trans = tf.nn.relu(act)
         if dropout:
             trans = tf.nn.dropout(trans, 0.7)  # 0.8? 0.5?
         previous_nodes = nodes
