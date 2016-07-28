@@ -1,3 +1,4 @@
+import sys
 import tensorflow as tf
 
 
@@ -38,8 +39,10 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
 
     depth = 0
 
+    sys.stdout.write("Graph shape: %d" % previous_nodes)
+
     for nodes in hidden_nodes + [output]:
-        print "%d --> %d" % (previous_nodes, nodes)
+        sys.stdout.write(" --> %d" % nodes)
         depth += 1
         w = param_norm([previous_nodes, nodes], "W%d" % depth)
         b = param_norm([nodes], "b%d" % depth)
@@ -49,6 +52,8 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
         if dropout:
             trans = tf.nn.dropout(trans, 0.7)  # 0.8? 0.5?
         previous_nodes = nodes
+
+    sys.stdout.write("\n")
 
     y = tf.nn.softmax(act, name="y")  # TODO
     loss = get_loss_function(loss_function, y, y_gold)
