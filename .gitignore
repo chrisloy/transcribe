@@ -1,8 +1,6 @@
 *.pyc
 output
-five_notes
-five_piano_simple
-mono_piano*
+*piano*
 .DS_Store
 .idea
 corpus
