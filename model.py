@@ -22,7 +22,7 @@ class Model:
 
 
 def param_norm(shape, name):
-    return tf.Variable(tf.truncated_normal(shape, 0.1), dtype="float32", name=name)
+    return tf.Variable(tf.truncated_normal(shape, 0.1, seed=1234), dtype="float32", name=name)
 
 
 def param_zeros(shape, name):
@@ -30,6 +30,8 @@ def param_zeros(shape, name):
 
 
 def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(), loss_function="mse", dropout=False):
+
+    tf.set_random_seed(1)
 
     x = tf.placeholder(tf.float32, shape=[None, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, output], name="y_gold")
@@ -50,7 +52,7 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
         trans = tf.nn.sigmoid(act)
         # trans = tf.nn.relu(act)
         if dropout:
-            trans = tf.nn.dropout(trans, 0.7)  # 0.8? 0.5?
+            trans = tf.nn.dropout(trans, 0.5, seed=1)  # 0.8? 0.5?
         previous_nodes = nodes
 
     sys.stdout.write("\n")
@@ -65,6 +67,8 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
 def get_loss_function(loss_function, y, y_gold):
     if loss_function == "mse":
         return tf.reduce_mean(tf.square(y - y_gold))
+    elif loss_function == "absolute":
+        return tf.reduce_mean(tf.abs(y - y_gold))
     elif loss_function == "cross_entropy":
         return tf.reduce_mean(-tf.reduce_sum(y_gold * tf.log(tf.clip_by_value(y, 1e-20, 1.0)), reduction_indices=1))
     else:
