@@ -7,7 +7,10 @@ import spectrogram
 import sys
 from functools import partial
 from multiprocessing import Pool
+from numpy.random import RandomState
 from sklearn.preprocessing import PolynomialFeatures
+
+r = RandomState(1234567890)
 
 
 class Data:
@@ -58,7 +61,7 @@ class Data:
             return self
 
     def to_shuffled(self):
-        i = np.random.permutation(np.shape(self.x_train)[0])
+        i = r.permutation(np.shape(self.x_train)[0])
         self.x_train = self.x_train[i, :]
         self.y_train = self.y_train[i, :]
         return self
