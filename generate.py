@@ -4,6 +4,9 @@ import random
 from subprocess import call
 
 
+random.seed(171253)
+
+
 class Note(object):
 
     def __init__(self, start, stop, pitch, velocity):
@@ -123,11 +126,11 @@ def generate_pair(num, out_file, corpus_name, polyphony, velocity, notes=PIANO_N
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
     number = 50
-    cn = "mono_piano_one_octave"
+    cn = "two_piano_one_octave"
     if not os.path.exists(cn):
         os.makedirs(cn)
         print "Created directory %s" % cn
-    p = fixed_polyphony(1)
+    p = fixed_polyphony(2)
     v = fixed_velocity(96)
     for n in range(0, number):
         generate_pair(n, of, cn, p, v, notes=range(60, 72))
