@@ -75,12 +75,23 @@ def to_x_and_slices(data):
     return data.astype("float32"), data.shape[1]
 
 
-def load_x(wav_file, engine):
-    return to_x_and_slices(spectrogram.spectrogram_cqt(wav_file, engine))
+def load_x(wav_file, engine, coarse):
+    x, s = to_x_and_slices(spectrogram.spectrogram_cqt(wav_file, engine))
+    return coarsely(x, s, coarse)
 
 
-def load_cached_x(cache_file):
-    return to_x_and_slices(preprocess.refresh(cache_file))
+def load_cached_x(cache_file, coarse):
+    x, s = to_x_and_slices(preprocess.refresh(cache_file))
+    return coarsely(x, s, coarse)
+
+
+def coarsely(x, s, coarse):
+    if coarse:
+        new_s = s / 3
+        max_i = x.shape[1] - (x.shape[1] % new_s)
+        return re_bin(x[:, :max_i], (x.shape[0], new_s)), new_s
+    else:
+        return x, s
 
 
 def load_y(midi_file, slices, lower, upper):
@@ -88,19 +99,24 @@ def load_y(midi_file, slices, lower, upper):
     return slicer.slice_midi_into(m, slices)[lower:upper, :]
 
 
-def load_pair(i, engine, corpus, lower, upper):
-    xi, s = load_x("%s/%04d.wav" % (corpus, i), engine)
+def load_pair(i, engine, corpus, lower, upper, coarse):
+    xi, s = load_x("%s/%04d.wav" % (corpus, i), engine, coarse)
     yi = load_y("%s/%04d.mid" % (corpus, i), s, lower, upper)
     return xi, yi
 
 
-def load_pair_from_cache(i, corpus, lower, upper):
-    xi, s = load_cached_x("%s/%04d_features.p" % (corpus, i))
+def load_pair_from_cache(i, corpus, lower, upper, coarse):
+    xi, s = load_cached_x("%s/%04d_features.p" % (corpus, i), coarse)
     yi = load_y("%s/%04d.mid" % (corpus, i), s, lower, upper)
     return xi, yi
 
 
-def load_slices(a, b, slice_samples, from_cache, corpus, lower, upper):
+def re_bin(a, shape):
+    sh = shape[0], a.shape[0] // shape[0], shape[1], a.shape[1] // shape[1]
+    return a.reshape(sh).mean(-1).mean(1)
+
+
+def load_slices(a, b, slice_samples, from_cache, corpus, lower, upper, coarse):
 
     pool = Pool(processes=8)
 
@@ -108,7 +124,9 @@ def load_slices(a, b, slice_samples, from_cache, corpus, lower, upper):
     y = []
 
     if from_cache:
-        xys = pool.map(partial(load_pair_from_cache, corpus=corpus, lower=lower, upper=upper), range(a, b))
+        xys = pool.map(
+            partial(load_pair_from_cache, corpus=corpus, lower=lower, upper=upper, coarse=coarse), range(a, b))
+
         for xi, yi in xys:
             x.append(xi)
             y.append(yi)
@@ -128,19 +146,19 @@ def load_slices(a, b, slice_samples, from_cache, corpus, lower, upper):
     return np.transpose(x), np.transpose(y)
 
 
-def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus, lower, upper):
+def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus, lower, upper, coarse=False):
     file_ext = ".p" if from_cache else ".wav"
     corpus_length = len(filter(lambda x: x.endswith(file_ext), os.listdir(corpus)))
     assert train_size + test_size <= corpus_length, "Cannot produce %d examples from corpus of size %d" % (
                                                     train_size + test_size, corpus_length)
     print "Loading training set...."
     x_train, y_train = load_slices(
-        0, train_size, slice_samples, from_cache, corpus, lower, upper
+        0, train_size, slice_samples, from_cache, corpus, lower, upper, coarse
     )
 
     print "Loading testing set...."
     x_test, y_test = load_slices(
-        corpus_length - test_size, corpus_length, slice_samples, from_cache, corpus, lower, upper
+        corpus_length - test_size, corpus_length, slice_samples, from_cache, corpus, lower, upper, coarse
     )
 
     batches = x_train.shape[0] / batch_size
