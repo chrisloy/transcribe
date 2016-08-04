@@ -7,9 +7,10 @@ import persist
 import slicer
 import sys
 import tensorflow as tf
+import warnings
 from collections import defaultdict
 from domain import Params
-from sklearn.metrics import roc_curve, confusion_matrix
+from sklearn.metrics import roc_curve, confusion_matrix, f1_score, precision_score, recall_score
 from matplotlib import pyplot as plt
 from os import devnull
 
@@ -58,19 +59,57 @@ def run_joint_model(p, from_cache=True):
         )
 
         sess.run(tf.initialize_all_variables())
-        train_model(p.epochs, m, d, report_epochs=10)
+        train_model(p.epochs, m, d, report_epochs=50)
 
         persist.save(sess, m, d, p)
 
-        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+        print "TRAIN"
+        y_pred = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
+        report_poly_stats(y_pred, d.y_train)
 
-    fpr, tpr, thresholds = roc_curve(d.y_test.flatten(), y_pred.flatten())
-    plt.plot(fpr, tpr)
+        print "TEST"
+        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+        report_poly_stats(y_pred, d.y_test)
+
+
+def report_poly_stats(y_pred, y_gold):
+    print "     |             ON              |             OFF             |"
+    print "--------------------------------------------------------------------------------------------------"
+    print "Note | Count       Mean    Std Dev | Count       Mean    Std Dev |     Prec     Recall         F1"
+    print "--------------------------------------------------------------------------------------------------"
+
+    for n in range(0, 12):
+        y_pred_n = y_pred[:, n]
+        y_true_n = y_gold[:, n]
+
+        ons = y_pred_n[y_true_n == 1]
+        offs = y_pred_n[y_true_n == 0]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            print "%4d | %5d   %f   %f | %5d   %f   %f | %f   %f   %f" % (
+                n,
+                len(ons),
+                float(np.mean(ons)),
+                float(np.std(ons)),
+                len(offs),
+                float(np.mean(offs)),
+                float(np.std(offs)),
+                precision_score(y_true_n, y_pred_n >= 0.5),
+                recall_score(y_true_n, y_pred_n >= 0.5),
+                f1_score(y_true_n, y_pred_n >= 0.5)
+            )
+
+        fpr, tpr, thresholds = roc_curve(y_true_n, y_pred_n)
+        plt.plot(fpr, tpr)
+
+    fpr, tpr, thresholds = roc_curve(y_gold.flatten(), y_pred.flatten())
+    plt.plot(fpr, tpr, linewidth=2)
+    plt.legend(map(str, range(0, 12)) + ["overall"], loc='lower right')
     plt.show()
 
 
 def run_one_hot_joint_model(p, from_cache=True):
-    assert p.outputs() == 88
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
@@ -115,7 +154,7 @@ def show_roc_curve(x, y, m, sess):
 
 
 def plot_confusion_heat_map(gold, pred):
-    matrix = confusion_matrix(gold, pred, range(89))
+    matrix = confusion_matrix(gold, pred, range(np.min(gold), np.max(gold)))
     print matrix.shape
     plt.pcolormesh(range(matrix.shape[0]), range(matrix.shape[0]), matrix)
     plt.ylabel('Y')
@@ -180,26 +219,72 @@ def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512,
     plt.show()
 
 
-def run_best_mono():
-    run_one_hot_joint_model(
-        Params(
-            epochs=100,
-            train_size=90,
-            test_size=10,
-            hidden_nodes=[],
-            corpus="mono_piano_simple",
-            learning_rate=0.05,
-            lower=21,
-            upper=109,
-            padding=0
+def run_best(corpus):
+    # TODO just search graphs for this
+    if corpus == "two_piano_one_octave":
+        run_joint_model(
+            Params(
+                epochs=100,
+                train_size=40,
+                test_size=10,
+                hidden_nodes=[],
+                corpus="two_piano_one_octave",
+                learning_rate=0.5,
+                lower=60,
+                upper=72,
+                padding=0
+            )
         )
-    )
+    elif corpus == "mono_piano_simple":
+        run_one_hot_joint_model(
+            Params(
+                epochs=100,
+                train_size=90,
+                test_size=10,
+                hidden_nodes=[],
+                corpus="mono_piano_simple",
+                learning_rate=0.05,
+                lower=21,
+                upper=109,
+                padding=0
+            )
+        )
+    elif corpus == "mono_piano_one_octave":
+        run_one_hot_joint_model(
+            Params(
+                epochs=100,
+                train_size=40,
+                test_size=10,
+                hidden_nodes=[],
+                corpus="mono_piano_one_octave",
+                learning_rate=0.05,
+                lower=60,
+                upper=72,
+                padding=0
+            )
+        )
+    elif corpus == "mono_piano_two_octaves":
+        run_one_hot_joint_model(
+            Params(
+                epochs=100,
+                train_size=40,
+                test_size=10,
+                hidden_nodes=[],
+                corpus="mono_piano_two_octaves",
+                learning_rate=0.05,
+                lower=48,
+                upper=72,
+                padding=0
+            )
+        )
+    else:
+        assert False
 
 
 if __name__ == "__main__":
     run_joint_model(
         Params(
-            epochs=200,
+            epochs=500,
             train_size=40,
             test_size=10,
             hidden_nodes=[],
@@ -207,6 +292,6 @@ if __name__ == "__main__":
             learning_rate=0.05,
             lower=60,
             upper=72,
-            padding=1
+            padding=0
         )
     )
