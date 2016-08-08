@@ -125,8 +125,8 @@ def generate_pair(num, out_file, corpus_name, polyphony, velocity, notes=PIANO_N
 
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
-    number = 50
-    cn = "two_piano_one_octave"
+    number = 500
+    cn = "two_piano_one_octave_big"
     if not os.path.exists(cn):
         os.makedirs(cn)
         print "Created directory %s" % cn
