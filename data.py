@@ -14,6 +14,10 @@ r = RandomState(1234567890)
 
 
 class Data:
+
+    # X: (data_points, features)
+    # Y: (data_points, notes)
+
     def __init__(self, x_train, y_train, x_test, y_test, batches, batch_size):
         self.x_train = x_train
         self.y_train = y_train
@@ -64,6 +68,11 @@ class Data:
         i = r.permutation(np.shape(self.x_train)[0])
         self.x_train = self.x_train[i, :]
         self.y_train = self.y_train[i, :]
+        return self
+
+    def to_sparse(self, threshold=0.01):
+        self.x_train[self.x_train < threshold] = 0
+        self.x_test[self.x_test < threshold] = 0
         return self
 
 
