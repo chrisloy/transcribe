@@ -10,7 +10,7 @@ import tensorflow as tf
 import warnings
 from collections import defaultdict
 from domain import Params
-from sklearn.metrics import roc_curve, confusion_matrix, f1_score, precision_score, recall_score
+from sklearn.metrics import roc_curve, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
 from matplotlib import pyplot as plt
 from os import devnull
 
@@ -19,7 +19,7 @@ def train_model(epochs, m, d, report_epochs=10):
     print "Training model with %d features..." % d.features
     for j in range(epochs + 1):
         if j == epochs or j % report_epochs == 0:
-            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.16f - TEST %s: %0.16f\n" %
+            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
                              (
                                  j,
                                  epochs,
@@ -48,18 +48,17 @@ def run_joint_model(p, from_cache=True):
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-        ).to_padded(p.padding).to_shuffled()
+        ).to_padded(p.padding).to_shuffled().to_sparse()
         m = model.feed_forward_model(
             d.features,
             p.outputs(),
-            loss_function="absolute",
             hidden_nodes=p.hidden_nodes,
             learning_rate=p.learning_rate,
             dropout=True
         )
 
         sess.run(tf.initialize_all_variables())
-        train_model(p.epochs, m, d, report_epochs=50)
+        train_model(p.epochs, m, d, report_epochs=1)
 
         persist.save(sess, m, d, p)
 
@@ -72,13 +71,18 @@ def run_joint_model(p, from_cache=True):
         report_poly_stats(y_pred, d.y_test)
 
 
-def report_poly_stats(y_pred, y_gold):
-    print "     |             ON              |             OFF             |"
-    print "--------------------------------------------------------------------------------------------------"
-    print "Note | Count       Mean    Std Dev | Count       Mean    Std Dev |     Prec     Recall         F1"
-    print "--------------------------------------------------------------------------------------------------"
+def report_poly_stats(y_pred, y_gold, show_graph=True):
+    print "     |              ON               |              OFF              |"
+    print "----------------------------------------------------------------------" \
+          "------------------------------------------"
+    print "Note |   Count       Mean    Std Dev |   Count       Mean    Std Dev |" \
+          "     Prec     Recall         F1    ROC AUC"
+    print "----------------------------------------------------------------------" \
+          "------------------------------------------"
 
-    for n in range(0, 12):
+    notes = range(0, y_gold.shape[1])
+
+    for n in notes:
         y_pred_n = y_pred[:, n]
         y_true_n = y_gold[:, n]
 
@@ -87,7 +91,7 @@ def report_poly_stats(y_pred, y_gold):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            print "%4d | %5d   %f   %f | %5d   %f   %f | %f   %f   %f" % (
+            print "%4d | %7d   %f   %f | %7d   %f   %f | %f   %f   %f   %f" % (
                 n,
                 len(ons),
                 float(np.mean(ons)),
@@ -97,16 +101,19 @@ def report_poly_stats(y_pred, y_gold):
                 float(np.std(offs)),
                 precision_score(y_true_n, y_pred_n >= 0.5),
                 recall_score(y_true_n, y_pred_n >= 0.5),
-                f1_score(y_true_n, y_pred_n >= 0.5)
+                f1_score(y_true_n, y_pred_n >= 0.5),
+                roc_auc_score(y_true_n, y_pred_n)
             )
 
-        fpr, tpr, thresholds = roc_curve(y_true_n, y_pred_n)
-        plt.plot(fpr, tpr)
+        if show_graph:
+            fpr, tpr, thresholds = roc_curve(y_true_n, y_pred_n)
+            plt.plot(fpr, tpr)
 
-    fpr, tpr, thresholds = roc_curve(y_gold.flatten(), y_pred.flatten())
-    plt.plot(fpr, tpr, linewidth=2)
-    plt.legend(map(str, range(0, 12)) + ["overall"], loc='lower right')
-    plt.show()
+    if show_graph:
+        fpr, tpr, thresholds = roc_curve(y_gold.flatten(), y_pred.flatten())
+        plt.plot(fpr, tpr, linewidth=2)
+        plt.legend(map(str, notes) + ["overall"], loc='lower right')
+        plt.show()
 
 
 def run_one_hot_joint_model(p, from_cache=True):
@@ -118,8 +125,8 @@ def run_one_hot_joint_model(p, from_cache=True):
                 d.features,
                 p.outputs() + 1,
                 hidden_nodes=p.hidden_nodes,
-                loss_function="cross_entropy",
-                learning_rate=p.learning_rate)
+                learning_rate=p.learning_rate,
+                one_hot=True)
         m.set_report("ACCURACY", m.accuracy())
 
         sess.run(tf.initialize_all_variables())
@@ -128,13 +135,13 @@ def run_one_hot_joint_model(p, from_cache=True):
         persist.save(sess, m, d, p)
 
         print "Training stats:"
-        report_stats(d.x_train, d.y_train, m, sess)
+        report_mono_stats(d.x_train, d.y_train, m, sess)
 
         print "Testing stats:"
-        report_stats(d.x_test, d.y_test, m, sess)
+        report_mono_stats(d.x_test, d.y_test, m, sess)
 
 
-def report_stats(x, y, m, sess):
+def report_mono_stats(x, y, m, sess):
     y_pred = m.y.eval(feed_dict={m.x: x}, session=sess)
     gold = y.argmax(axis=1)
     pred = y_pred.argmax(axis=1)
@@ -188,43 +195,12 @@ def produce_prediction(slice_samples, x, y):
     generate.write_wav_file("output/sanity_pred.mid", "output/sanity_pred_deep.wav", open(devnull, 'w'))
 
 
-def run_individual_classifiers(epochs, train_size, test_size, slice_samples=512, batch_size=1000, from_cache=True,
-                               notes=range(128), corpus="corpus"):
-    start_note = min(notes)
-    max_notes = len(notes)
-
-    d = data.load(train_size, test_size, slice_samples, from_cache, batch_size, corpus, 1, 128).to_binary_one_hot()
-
-    with tf.Session() as sess:
-        models = []
-
-        for i in range(len(notes)):
-            models.append(model.feed_forward_model(d.features, 2))
-
-        sess.run(tf.initialize_all_variables())
-
-        for i in range(len(notes)):
-            n = notes[i]
-            print "NOTE %03d" % n
-            train_model(epochs, models[i], d.to_note(n))
-
-        y_pred = np.empty([d.y_test.shape[0], max_notes])
-
-        for i in range(len(notes)):
-            y_pred[:, i] = models[i].y.eval(feed_dict={models[i].x: d.x_test}, session=sess)[:, 1]
-
-    fpr, tpr, thresholds = roc_curve(d.y_test[:, start_note:start_note+max_notes, 1].flatten(), y_pred.flatten())
-
-    plt.plot(fpr, tpr)
-    plt.show()
-
-
 def run_best(corpus):
     # TODO just search graphs for this
     if corpus == "two_piano_one_octave":
         run_joint_model(
             Params(
-                epochs=100,
+                epochs=10,
                 train_size=40,
                 test_size=10,
                 hidden_nodes=[],
@@ -277,21 +253,37 @@ def run_best(corpus):
                 padding=0
             )
         )
+    elif corpus == "two_piano_one_octave_big":
+        run_joint_model(
+            Params(
+                epochs=50,
+                train_size=400,
+                test_size=100,
+                hidden_nodes=[],
+                corpus="two_piano_one_octave_big",
+                learning_rate=0.05,
+                lower=60,
+                upper=72,
+                padding=0
+            )
+        )
+    elif corpus == "five_piano_simple":
+        run_joint_model(
+            Params(
+                epochs=4,
+                train_size=400,
+                test_size=100,
+                hidden_nodes=[],
+                corpus="five_piano_simple",
+                learning_rate=0.1,
+                lower=21,
+                upper=109,
+                padding=0
+            )
+        )
     else:
         assert False
 
 
 if __name__ == "__main__":
-    run_joint_model(
-        Params(
-            epochs=500,
-            train_size=40,
-            test_size=10,
-            hidden_nodes=[],
-            corpus="two_piano_one_octave",
-            learning_rate=0.05,
-            lower=60,
-            upper=72,
-            padding=0
-        )
-    )
+    run_best("two_piano_one_octave")

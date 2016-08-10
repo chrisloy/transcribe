@@ -29,7 +29,14 @@ def param_zeros(shape, name):
     return tf.Variable(tf.zeros(shape), dtype="float32", name=name)
 
 
-def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(), loss_function="mse", dropout=False):
+def feed_forward_model(
+        features,
+        output,
+        learning_rate=0.001,
+        hidden_nodes=list(),
+        dropout=False,
+        one_hot=False,
+        with_bias=True):
 
     tf.set_random_seed(1)
 
@@ -43,33 +50,37 @@ def feed_forward_model(features, output, learning_rate=0.001, hidden_nodes=list(
 
     sys.stdout.write("Graph shape: %d" % previous_nodes)
 
-    for nodes in hidden_nodes + [output]:
+    layers = hidden_nodes + [output]
+
+    for i, nodes in enumerate(layers):
+
         sys.stdout.write(" --> %d" % nodes)
         depth += 1
         w = param_norm([previous_nodes, nodes], "W%d" % depth)
-        b = param_norm([nodes], "b%d" % depth)
-        act = tf.matmul(trans, w) + b
-        trans = tf.nn.sigmoid(act)
-        # trans = tf.nn.relu(act)
-        if dropout:
-            trans = tf.nn.dropout(trans, 0.5, seed=1)  # 0.8? 0.5?
+
+        if with_bias:
+            b = param_norm([nodes], "b%d" % depth)
+            act = tf.matmul(trans, w) + b
+        else:
+            act = tf.matmul(trans, w)
+
+        if i + 1 < len(layers):
+            trans = tf.nn.relu(act)
+            if dropout:
+                trans = tf.nn.dropout(trans, 0.5, seed=1)
+
         previous_nodes = nodes
 
     sys.stdout.write("\n")
 
-    y = tf.nn.softmax(act, name="y")  # TODO
-    loss = get_loss_function(loss_function, y, y_gold)
+    if one_hot:
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(act, y_gold))
+        y = tf.nn.softmax(act, name="y")
+    else:
+        loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(act, y_gold))
+        y = tf.nn.sigmoid(act, name="y")
+
     train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
     return Model(x, y, y_gold, loss, train_step)
 
-
-def get_loss_function(loss_function, y, y_gold):
-    if loss_function == "mse":
-        return tf.reduce_mean(tf.square(y - y_gold))
-    elif loss_function == "absolute":
-        return tf.reduce_mean(tf.abs(y - y_gold))
-    elif loss_function == "cross_entropy":
-        return tf.reduce_mean(-tf.reduce_sum(y_gold * tf.log(tf.clip_by_value(y, 1e-20, 1.0)), reduction_indices=1))
-    else:
-        raise NameError("Unknown loss function %s" % loss_function)
