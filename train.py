@@ -85,17 +85,25 @@ def run_sequence_model(p, from_cache=True):
 
         for j in range(p.epochs + 1):
 
-            # if j == p.epochs or j % report_epochs == 0:
-            #     sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
-            #                      (
-            #                          j,
-            #                          p.epochs,
-            #                          m.report_name,
-            #                          m.report_target.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train, m.initial_state: np.zeros((1, 2*88))}),
-            #                          m.report_name,
-            #                          m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test, m.initial_state: np.zeros((1, 2*88))})
-            #                      ))
-            #     sys.stdout.flush()
+            if j == p.epochs or j % report_epochs == 0:
+                sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
+                                 (
+                                     j,
+                                     p.epochs,
+                                     m.report_name,
+                                     m.report_target.eval(feed_dict={
+                                         m.x: d.x_train[1, :, :].reshape((1, 50, 660)),
+                                         m.y_gold: d.y_train[1, :, :].reshape((1, 50, 88)),
+                                         m.initial_state: np.zeros((1, 2 * 88))
+                                     }),
+                                     m.report_name,
+                                     m.report_target.eval(feed_dict={
+                                         m.x: d.x_test[1, :, :].reshape((1, 50, 660)),
+                                         m.y_gold: d.y_test[1, :, :].reshape((1, 50, 88)),
+                                         m.initial_state: np.zeros((1, 2 * 88))
+                                     })
+                                 ))
+                sys.stdout.flush()
 
             if j < p.epochs:
                 for k in range(d.batches):
@@ -105,7 +113,7 @@ def run_sequence_model(p, from_cache=True):
                     m.train_step.run(feed_dict={
                         m.x: d.x_train[k, :, :].reshape((1, 50, 660)),
                         m.y_gold: d.y_train[k, :, :].reshape((1, 50, 88)),
-                        m.initial_state: np.zeros((1, 2*88))
+                        m.initial_state: np.zeros((1, 2 * 88))
                     })
 
         # persist.save(sess, m, d, p)
