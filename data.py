@@ -26,6 +26,10 @@ class Data:
         self.batches = batches
         self.batch_size = batch_size
         self.features = x_train.shape[1]
+        self.n_train = x_train.shape[0]
+        self.n_test = x_test.shape[0]
+        self.notes = self.y_train.shape[1]
+
 
     def to_binary_one_hot(self):
         # Change y labels into one-hot vectors in two dimensions.
@@ -77,27 +81,27 @@ class Data:
 
     def to_sequences(self, sequence_length):
 
-        s = self.x_train.shape
-        sequences = s[0] / sequence_length
-        features = s[1]
-        notes = self.y_train.shape[1]
-        # print "seqs %d features %d notes %d" %(sequences, features, notes)
-        keep = sequences * sequence_length
-        self.x_train = np.reshape(self.x_train[:keep, :], (sequence_length, sequences, features)).transpose(1, 0, 2)
-        self.y_train = np.reshape(self.y_train[:keep, :], (sequence_length, sequences, notes)).transpose(1, 0, 2)
+        seqs = self.x_train.shape[0] / sequence_length
+        keep = seqs * sequence_length
+        self.x_train = np.reshape(self.x_train[:keep, :], (sequence_length, seqs, self.features)).transpose(1, 0, 2)
+        self.y_train = np.reshape(self.y_train[:keep, :], (sequence_length, seqs, self.notes)).transpose(1, 0, 2)
 
-        s = self.x_test.shape
-        sequences = s[0] / sequence_length
-        features = s[1]
-        notes = self.y_test.shape[1]
-        # print "seqs %d features %d notes %d" % (sequences, features, notes)
-        keep = sequences * sequence_length
-        self.x_test = np.reshape(self.x_test[:keep, :], (sequence_length, sequences, features)).transpose(1, 0, 2)
-        self.y_test = np.reshape(self.y_test[:keep, :], (sequence_length, sequences, notes)).transpose(1, 0, 2)
+        seqs = self.x_test.shape[0] / sequence_length
+        keep = seqs * sequence_length
+        self.x_test = np.reshape(self.x_test[:keep, :], (sequence_length, seqs, self.features)).transpose(1, 0, 2)
+        self.y_test = np.reshape(self.y_test[:keep, :], (sequence_length, seqs, self.notes)).transpose(1, 0, 2)
 
-        self.batches = self.x_train.shape[0]
+        self.n_train = self.x_train.shape[0]
+        self.n_test = self.x_test.shape[0]
+        self.batches = self.n_train / self.batch_size
 
         return self
+
+    def without_sequences(self):
+        self.x_train = np.reshape(self.x_train, [-1, -1])
+        self.y_train = np.reshape(self.y_train, [-1, -1])
+        self.x_test = np.reshape(self.x_test, [-1, -1])
+        self.y_test = np.reshape(self.y_test, [-1, -1])
 
 
 def poly_kernel(x):

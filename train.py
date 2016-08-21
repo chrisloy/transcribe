@@ -75,9 +75,9 @@ def run_sequence_model(p, from_cache=True):
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-        ).to_padded(p.padding).to_sparse().to_sequences(50)
+        ).to_padded(p.padding).to_sparse().to_sequences(p.steps)
 
-        m = model.rnn(p.learning_rate)
+        m = model.rnn(d.features, p.outputs(), p.steps, p.hidden, p.learning_rate)
 
         sess.run(tf.initialize_all_variables())
 
@@ -92,15 +92,15 @@ def run_sequence_model(p, from_cache=True):
                                      p.epochs,
                                      m.report_name,
                                      m.report_target.eval(feed_dict={
-                                         m.x: d.x_train[1, :, :].reshape((1, 50, 660)),
-                                         m.y_gold: d.y_train[1, :, :].reshape((1, 50, 88)),
-                                         m.initial_state: np.zeros((1, 2 * 88))
+                                         m.x:       d.x_train,
+                                         m.y_gold:  d.y_train,
+                                         m.i_state: np.zeros([d.n_train, p.outputs()])
                                      }),
                                      m.report_name,
                                      m.report_target.eval(feed_dict={
-                                         m.x: d.x_test[1, :, :].reshape((1, 50, 660)),
-                                         m.y_gold: d.y_test[1, :, :].reshape((1, 50, 88)),
-                                         m.initial_state: np.zeros((1, 2 * 88))
+                                         m.x:       d.x_test,
+                                         m.y_gold:  d.y_test,
+                                         m.i_state: np.zeros([d.n_test, p.outputs()])
                                      })
                                  ))
                 sys.stdout.flush()
@@ -110,23 +110,30 @@ def run_sequence_model(p, from_cache=True):
                     sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, p.epochs, k + 1, d.batches))
                     sys.stdout.flush()
 
+                    start = k * d.batch_size
+                    stop = (k + 1) * d.batch_size
+
                     m.train_step.run(feed_dict={
-                        m.x: d.x_train[k, :, :].reshape((1, 50, 660)),
-                        m.y_gold: d.y_train[k, :, :].reshape((1, 50, 88)),
-                        m.initial_state: np.zeros((1, 2 * 88))
+                        m.x:       d.x_train[start:stop, :, :],
+                        m.y_gold:  d.y_train[start:stop, :, :],
+                        m.i_state: np.zeros([p.batch_size, p.outputs()])
                     })
 
         # persist.save(sess, m, d, p)
 
-        print np.shape(d.x_train)
+        y_pred_train = m.y.eval(feed_dict={m.x: d.x_train, m.i_state: np.zeros([d.n_train, p.outputs()])}, session=sess)
+        y_pred_test = m.y.eval(feed_dict={m.x: d.x_test, m.i_state: np.zeros([d.n_test, p.outputs()])}, session=sess)
+        # d.without_sequences()
 
         print "TRAIN"
-        y_pred = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
-        report_poly_stats(y_pred, d.y_train)
+        report_poly_stats(squash_sequences(y_pred_train), squash_sequences(d.y_train))
 
         print "TEST"
-        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
-        report_poly_stats(y_pred, d.y_test)
+        report_poly_stats(squash_sequences(y_pred_test), squash_sequences(d.y_test))
+
+
+def squash_sequences(foo):
+    return np.reshape(foo, [-1, foo.shape[-1]])
 
 
 def report_poly_stats(y_pred, y_gold, show_graph=True):
@@ -346,15 +353,17 @@ def run_best(corpus):
 if __name__ == "__main__":
     run_sequence_model(
         Params(
-            epochs=100,
-            train_size=1,
-            test_size=2,
+            epochs=50,
+            train_size=35,
+            test_size=5,
             hidden_nodes=[],
-            corpus="mono_piano_simple",
+            corpus="two_piano_one_octave",
             learning_rate=0.05,
-            lower=21,
-            upper=109,
+            lower=60,
+            upper=72,
             padding=0,
-            batch_size=1
+            batch_size=2,
+            steps=50,
+            hidden=12
         )
     )
