@@ -65,7 +65,7 @@ class Data:
             return self
 
     def to_shuffled(self):
-        i = r.permutation(np.shape(self.x_train)[0])
+        i = r.permutation(self.x_train.shape[0])
         self.x_train = self.x_train[i, :]
         self.y_train = self.y_train[i, :]
         return self
@@ -73,6 +73,30 @@ class Data:
     def to_sparse(self, threshold=0.01):
         self.x_train[self.x_train < threshold] = 0
         self.x_test[self.x_test < threshold] = 0
+        return self
+
+    def to_sequences(self, sequence_length):
+
+        s = self.x_train.shape
+        sequences = s[0] / sequence_length
+        features = s[1]
+        notes = self.y_train.shape[1]
+        # print "seqs %d features %d notes %d" %(sequences, features, notes)
+        keep = sequences * sequence_length
+        self.x_train = np.reshape(self.x_train[:keep, :], (sequence_length, sequences, features)).transpose(1, 0, 2)
+        self.y_train = np.reshape(self.y_train[:keep, :], (sequence_length, sequences, notes)).transpose(1, 0, 2)
+
+        s = self.x_test.shape
+        sequences = s[0] / sequence_length
+        features = s[1]
+        notes = self.y_test.shape[1]
+        # print "seqs %d features %d notes %d" % (sequences, features, notes)
+        keep = sequences * sequence_length
+        self.x_test = np.reshape(self.x_test[:keep, :], (sequence_length, sequences, features)).transpose(1, 0, 2)
+        self.y_test = np.reshape(self.y_test[:keep, :], (sequence_length, sequences, notes)).transpose(1, 0, 2)
+
+        self.batches = self.x_train.shape[0]
+
         return self
 
 
@@ -145,7 +169,7 @@ def load_slices(a, b, slice_samples, from_cache, corpus, lower, upper, coarse):
         for i in range(a, b):
             sys.stdout.write("%d/%d\r" % (i - a, b - a))
             sys.stdout.flush()
-            xi, yi = load_pair(i, engine, corpus, lower, upper)
+            xi, yi = load_pair(i, engine, corpus, lower, upper, coarse)
             x.append(xi)
             y.append(yi)
 

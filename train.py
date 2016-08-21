@@ -71,6 +71,56 @@ def run_joint_model(p, from_cache=True):
         report_poly_stats(y_pred, d.y_test)
 
 
+def run_sequence_model(p, from_cache=True):
+    with tf.Session() as sess:
+        d = data.load(
+            p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
+        ).to_padded(p.padding).to_sparse().to_sequences(50)
+
+        m = model.rnn(p.learning_rate)
+
+        sess.run(tf.initialize_all_variables())
+
+        report_epochs = 1
+
+        for j in range(p.epochs + 1):
+
+            # if j == p.epochs or j % report_epochs == 0:
+            #     sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
+            #                      (
+            #                          j,
+            #                          p.epochs,
+            #                          m.report_name,
+            #                          m.report_target.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train, m.initial_state: np.zeros((1, 2*88))}),
+            #                          m.report_name,
+            #                          m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test, m.initial_state: np.zeros((1, 2*88))})
+            #                      ))
+            #     sys.stdout.flush()
+
+            if j < p.epochs:
+                for k in range(d.batches):
+                    sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, p.epochs, k + 1, d.batches))
+                    sys.stdout.flush()
+
+                    m.train_step.run(feed_dict={
+                        m.x: d.x_train[k, :, :].reshape((1, 50, 660)),
+                        m.y_gold: d.y_train[k, :, :].reshape((1, 50, 88)),
+                        m.initial_state: np.zeros((1, 2*88))
+                    })
+
+        # persist.save(sess, m, d, p)
+
+        print np.shape(d.x_train)
+
+        print "TRAIN"
+        y_pred = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
+        report_poly_stats(y_pred, d.y_train)
+
+        print "TEST"
+        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+        report_poly_stats(y_pred, d.y_test)
+
+
 def report_poly_stats(y_pred, y_gold, show_graph=True):
     print "     |              ON               |              OFF              |"
     print "----------------------------------------------------------------------" \
@@ -286,4 +336,17 @@ def run_best(corpus):
 
 
 if __name__ == "__main__":
-    run_best("two_piano_one_octave")
+    run_sequence_model(
+        Params(
+            epochs=100,
+            train_size=1,
+            test_size=2,
+            hidden_nodes=[],
+            corpus="mono_piano_simple",
+            learning_rate=0.05,
+            lower=21,
+            upper=109,
+            padding=0,
+            batch_size=1
+        )
+    )
