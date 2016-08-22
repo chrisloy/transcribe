@@ -109,17 +109,20 @@ def rnn_model(
         'out': tf.Variable(tf.random_normal([notes]))
     }
 
-    def make_graph(_x, _weights, _biases):
-        _x = tf.transpose(_x, [1, 0, 2])
-        _x = tf.reshape(_x, [-1, features])
-        _x = tf.matmul(_x, _weights['hidden']) + _biases['hidden']
-        _x = tf.split(0, steps, _x)
+    def make_graph(_x, _weights, _biases):                            # (batch, steps, feats)
+        _x = tf.transpose(_x, [1, 0, 2])                              # (steps, batch, feats)
+        _x = tf.reshape(_x, [-1, features])                           # (steps * batch, feats)
+        _x = tf.matmul(_x, _weights['hidden']) + _biases['hidden']    # (steps * batch, hidden)
+        _x = tf.split(0, steps, _x)                                   # (steps, batch, hidden)
 
-        cell = rnn_cell(graph_type, hidden)
-        output = rnn(graph_type, cell, initial_state, _x)
+        cell = rnn_cell(graph_type, hidden)                           # (steps, batch, hidden)
 
-        # return tf.matmul(tf.transpose(output, [1, 0, 2]), _weights['out']) + _biases["out"]
-        return tf.transpose(output, [1, 0, 2])
+        output = rnn(graph_type, cell, initial_state, _x)             # (steps, batch, hidden)
+        output = tf.reshape(output, [-1, hidden])                     # (steps * batch, hidden)
+        output = tf.matmul(output, _weights["out"]) + _biases["out"]  # (steps * batch, notes)
+        output = tf.split(0, steps, output)                           # (steps, batch, notes)
+
+        return tf.transpose(output, [1, 0, 2])                        # (batch, steps, notes)
 
     log_y = make_graph(x, weights, biases)
 
