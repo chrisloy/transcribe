@@ -77,11 +77,13 @@ def run_sequence_model(p, from_cache=True):
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
         ).to_padded(p.padding).to_sparse().to_sequences(p.steps)
 
-        m = model.rnn(d.features, p.outputs(), p.steps, p.hidden, p.learning_rate)
+        m = model.rnn_model(d.features, p.outputs(), p.steps, p.hidden, p.graph_type, p.learning_rate)
 
         sess.run(tf.initialize_all_variables())
 
         report_epochs = 1
+        i_state_shape = p.outputs()
+        i_state_shape = i_state_shape * 2 if p.graph_type == 'lstm' else i_state_shape
 
         for j in range(p.epochs + 1):
 
@@ -94,13 +96,13 @@ def run_sequence_model(p, from_cache=True):
                                      m.report_target.eval(feed_dict={
                                          m.x:       d.x_train,
                                          m.y_gold:  d.y_train,
-                                         m.i_state: np.zeros([d.n_train, p.outputs()])
+                                         m.i_state: np.zeros([d.n_train, i_state_shape])
                                      }),
                                      m.report_name,
                                      m.report_target.eval(feed_dict={
                                          m.x:       d.x_test,
                                          m.y_gold:  d.y_test,
-                                         m.i_state: np.zeros([d.n_test, p.outputs()])
+                                         m.i_state: np.zeros([d.n_test, i_state_shape])
                                      })
                                  ))
                 sys.stdout.flush()
@@ -116,14 +118,13 @@ def run_sequence_model(p, from_cache=True):
                     m.train_step.run(feed_dict={
                         m.x:       d.x_train[start:stop, :, :],
                         m.y_gold:  d.y_train[start:stop, :, :],
-                        m.i_state: np.zeros([p.batch_size, p.outputs()])
+                        m.i_state: np.zeros([p.batch_size, i_state_shape])
                     })
 
         # persist.save(sess, m, d, p)
 
-        y_pred_train = m.y.eval(feed_dict={m.x: d.x_train, m.i_state: np.zeros([d.n_train, p.outputs()])}, session=sess)
-        y_pred_test = m.y.eval(feed_dict={m.x: d.x_test, m.i_state: np.zeros([d.n_test, p.outputs()])}, session=sess)
-        # d.without_sequences()
+        y_pred_train = m.y.eval(feed_dict={m.x: d.x_train, m.i_state: np.zeros([d.n_train, i_state_shape])}, session=sess)
+        y_pred_test = m.y.eval(feed_dict={m.x: d.x_test, m.i_state: np.zeros([d.n_test, i_state_shape])}, session=sess)
 
         print "TRAIN"
         report_poly_stats(squash_sequences(y_pred_train), squash_sequences(d.y_train))
@@ -354,16 +355,17 @@ if __name__ == "__main__":
     run_sequence_model(
         Params(
             epochs=100,
-            train_size=40,
-            test_size=10,
+            train_size=5,
+            test_size=5,
             hidden_nodes=[],
             corpus="two_piano_one_octave",
-            learning_rate=0.005,
+            learning_rate=0.002,
             lower=60,
             upper=72,
             padding=0,
             batch_size=1,
             steps=50,
-            hidden=12
+            hidden=12,
+            graph_type="rnn"
         )
     )

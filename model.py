@@ -86,17 +86,19 @@ def feed_forward_model(
     return Model(x, y, y_gold, loss, train_step)
 
 
-def rnn(features,
+def rnn_model(
+        features,
         notes,
         steps,
         hidden,
+        graph_type,
         learning_rate):
 
     tf.set_random_seed(1)
 
     x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
-    initial_state = tf.placeholder(tf.float32, shape=[None, hidden], name="initial_state")
+    initial_state = rnn_initial_state(graph_type, hidden)
 
     weights = {
         'hidden': tf.Variable(tf.random_normal([features, hidden])),
@@ -111,28 +113,42 @@ def rnn(features,
         _x = tf.transpose(_x, [1, 0, 2])
         _x = tf.reshape(_x, [-1, features])
         _x = tf.matmul(_x, _weights['hidden']) + _biases['hidden']
-
-        cell = tf.nn.rnn_cell.BasicRNNCell(hidden)
         _x = tf.split(0, steps, _x)
 
-        outputs, _, _ = tf.nn.bidirectional_rnn(cell, cell, _x, initial_state, initial_state)
+        cell = rnn_cell(graph_type, hidden)
+        output = rnn(graph_type, cell, initial_state, _x)
 
-        # TODO output layer
-        # result = []
-        #
-        # for i in range(n_steps):
-        #     result += tf.matmul(outputs[i], _weights['out']) + _biases['out']
-
-        fw, bw = tf.split(2, 2, outputs)
-
-        return tf.transpose(bw, [1, 0, 2])
+        # return tf.matmul(tf.transpose(output, [1, 0, 2]), _weights['out']) + _biases["out"]
+        return tf.transpose(output, [1, 0, 2])
 
     log_y = make_graph(x, weights, biases)
 
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(log_y, y_gold))
     train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
-
     y = tf.sigmoid(log_y)
 
     return Model(x, y, y_gold, loss, train_step, initial_state)
 
+
+def rnn_initial_state(graph_type, hidden):
+    if graph_type == 'lstm' or graph_type == 'bi_lstm':
+        return tf.placeholder(tf.float32, shape=[None, hidden * 2], name="initial_state")
+    else:
+        return tf.placeholder(tf.float32, shape=[None, hidden], name="initial_state")
+
+
+def rnn_cell(graph_type, size):
+    if graph_type == 'lstm' or graph_type == 'bi_lstm':
+        return tf.nn.rnn_cell.BasicLSTMCell(size, forget_bias=1.0)
+    else:
+        return tf.nn.rnn_cell.BasicRNNCell(size)
+
+
+def rnn(graph_type, cell, initial_state, x):
+    if graph_type == 'bi_rnn' or graph_type == 'bi_lstm':
+        outputs, _, _ = tf.nn.bidirectional_rnn(cell, cell, x, initial_state, initial_state)
+        fw, bw = tf.split(2, 2, outputs)
+        output = fw
+    else:
+        output, _ = tf.nn.rnn(cell, x, initial_state)
+    return output
