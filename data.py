@@ -29,6 +29,8 @@ class Data:
         self.n_train = x_train.shape[0]
         self.n_test = x_test.shape[0]
         self.notes = self.y_train.shape[1]
+        self.init_train = None
+        self.init_test = None
 
     def to_binary_one_hot(self):
         # Change y labels into one-hot vectors in two dimensions.
