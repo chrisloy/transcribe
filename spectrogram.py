@@ -1,6 +1,7 @@
 from scipy.io import wavfile
-import scipy.signal as sig
 from matplotlib import pyplot as plt
+import scipy.signal as sig
+import sys
 import numpy as np
 import yaafelib as yf
 
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     # s = preprocess.refresh("corpus/0003_features.p")
 
     eng = cqt_engine(512, 60)
-    s = spectrogram_cqt("mono_piano_simple/0005.wav", eng)
+    s = spectrogram_cqt(sys.argv[1], eng)
     x_label = np.arange(s.shape[1])
     y_label = np.arange(60 * 11)
 
