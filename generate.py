@@ -20,7 +20,6 @@ class Note(object):
 
 
 PIANO_NOTES = range(21, 109)
-NUM_NOTES = len(PIANO_NOTES)  # == 88
 
 
 def random_key(notes):
@@ -42,9 +41,18 @@ def pairs(l):
     return x
 
 
-def shift(note, key, amount):
-    shifted = (note + amount) % NUM_NOTES
-    return shifted if note in key else shift(shifted, key, amount)
+def up_one(note, key):
+    if note == key[-1]:
+        return key[0]
+    else:
+        return key[key.index(note) + 1]
+
+
+def down_one(note, key):
+    if note == key[0]:
+        return key[-1]
+    else:
+        return key[key.index(note) - 1]
 
 
 def random_velocity():
@@ -75,7 +83,7 @@ def tracking_melody(measures, measure_length, key, lower, upper, rest_probabilit
         if random.random() > rest_probability:
             last_note = melody[-1].pitch
             last_stop = melody[-1].stop
-            note = random.choice([last_note, shift(last_note, key, 1), shift(last_note, key, -1)])
+            note = random.choice([last_note, up_one(last_note, key), down_one(last_note, key)])
             melody.append(Note(last_stop, stop, note, velocity()))
     return melody
 
@@ -126,12 +134,12 @@ def generate_pair(num, out_file, corpus_name, polyphony, velocity, notes=PIANO_N
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
     number = 500
-    cn = "two_piano_one_octave_big"
+    cn = "five_piano_magic"
     if not os.path.exists(cn):
         os.makedirs(cn)
         print "Created directory %s" % cn
-    p = fixed_polyphony(2)
+    p = fixed_polyphony(5)
     v = fixed_velocity(96)
     for n in range(0, number):
-        generate_pair(n, of, cn, p, v, notes=range(60, 72))
+        generate_pair(n, of, cn, p, v, notes=PIANO_NOTES)
         print "Completed %d of %d in [%s]" % (n + 1, number, cn)
