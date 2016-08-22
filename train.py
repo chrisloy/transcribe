@@ -353,16 +353,16 @@ def run_best(corpus):
 if __name__ == "__main__":
     run_sequence_model(
         Params(
-            epochs=50,
-            train_size=35,
-            test_size=5,
+            epochs=100,
+            train_size=40,
+            test_size=10,
             hidden_nodes=[],
             corpus="two_piano_one_octave",
-            learning_rate=0.05,
+            learning_rate=0.005,
             lower=60,
             upper=72,
             padding=0,
-            batch_size=2,
+            batch_size=1,
             steps=50,
             hidden=12
         )

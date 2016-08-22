@@ -30,7 +30,6 @@ class Data:
         self.n_test = x_test.shape[0]
         self.notes = self.y_train.shape[1]
 
-
     def to_binary_one_hot(self):
         # Change y labels into one-hot vectors in two dimensions.
         y_train = np.stack([1 - self.y_train, self.y_train], axis=2)

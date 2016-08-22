@@ -87,7 +87,7 @@ def feed_forward_model(
 
 
 def rnn(features,
-        output,
+        notes,
         steps,
         hidden,
         learning_rate):
@@ -95,16 +95,16 @@ def rnn(features,
     tf.set_random_seed(1)
 
     x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
-    y_gold = tf.placeholder(tf.float32, shape=[None, steps, output], name="y_gold")
+    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
     initial_state = tf.placeholder(tf.float32, shape=[None, hidden], name="initial_state")
 
     weights = {
         'hidden': tf.Variable(tf.random_normal([features, hidden])),
-        'out': tf.Variable(tf.random_normal([hidden, output]))
+        'out': tf.Variable(tf.random_normal([hidden, notes]))
     }
     biases = {
         'hidden': tf.Variable(tf.random_normal([hidden])),
-        'out': tf.Variable(tf.random_normal([output]))
+        'out': tf.Variable(tf.random_normal([notes]))
     }
 
     def make_graph(_x, _weights, _biases):
@@ -115,7 +115,7 @@ def rnn(features,
         cell = tf.nn.rnn_cell.BasicRNNCell(hidden)
         _x = tf.split(0, steps, _x)
 
-        outputs, states = tf.nn.rnn(cell, _x, initial_state=initial_state)
+        outputs, _, _ = tf.nn.bidirectional_rnn(cell, cell, _x, initial_state, initial_state)
 
         # TODO output layer
         # result = []
@@ -123,7 +123,9 @@ def rnn(features,
         # for i in range(n_steps):
         #     result += tf.matmul(outputs[i], _weights['out']) + _biases['out']
 
-        return tf.transpose(outputs, [1, 0, 2])
+        fw, bw = tf.split(2, 2, outputs)
+
+        return tf.transpose(bw, [1, 0, 2])
 
     log_y = make_graph(x, weights, biases)
 
