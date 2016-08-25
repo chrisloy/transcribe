@@ -143,12 +143,14 @@ def rnn_initial_state(graph_type, hidden):
 def rnn_cell(graph_type, size):
     if graph_type == 'lstm' or graph_type == 'bi_lstm':
         return tf.nn.rnn_cell.BasicLSTMCell(size, forget_bias=1.0)
+    elif graph_type == 'gru' or 'bi_gru':
+        return tf.nn.rnn_cell.GRUCell(size)
     else:
         return tf.nn.rnn_cell.BasicRNNCell(size)
 
 
 def rnn(graph_type, cell, initial_state, x):
-    if graph_type == 'bi_rnn' or graph_type == 'bi_lstm':
+    if graph_type == 'bi_rnn' or graph_type == 'bi_lstm' or graph_type == 'bi_gru':
         outputs, _, _ = tf.nn.bidirectional_rnn(cell, cell, x, initial_state, initial_state)
         fw, bw = tf.split(2, 2, outputs)
         output = fw
