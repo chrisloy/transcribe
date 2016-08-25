@@ -81,7 +81,7 @@ def run_sequence_model(p, from_cache=True):
 
         sess.run(tf.initialize_all_variables())
 
-        report_epochs = 1
+        report_epochs = 10
         i_state_shape = p.hidden
         i_state_shape = i_state_shape * 2 if p.graph_type == 'lstm' else i_state_shape
 
@@ -266,9 +266,10 @@ def produce_prediction(slice_samples, x, y):
     generate.write_wav_file("output/sanity_pred.mid", "output/sanity_pred_deep.wav", open(devnull, 'w'))
 
 
-def run_best(corpus):
+def run_best_time_slice(corpus):
     # TODO just search graphs for this
     if corpus == "two_piano_one_octave":
+        # 0.14709036
         run_joint_model(
             Params(
                 epochs=10,
@@ -339,6 +340,7 @@ def run_best(corpus):
             )
         )
     elif corpus == "five_piano_simple":
+        # 0.06993538
         run_joint_model(
             Params(
                 epochs=4,
@@ -352,25 +354,136 @@ def run_best(corpus):
                 padding=0
             )
         )
+    elif corpus == "five_piano_magic":
+        # 0.09098092
+        run_joint_model(
+            Params(
+                epochs=4,
+                train_size=400,
+                test_size=100,
+                hidden_nodes=[],
+                corpus="five_piano_magic",
+                learning_rate=0.1,
+                lower=21,
+                upper=109,
+                padding=0
+            )
+        )
+    elif corpus == "piano_notes_88_poly_3_to_15_velocity_63_to_127":
+        # 0.15937304
+        run_joint_model(
+            Params(
+                epochs=2,
+                train_size=600,
+                test_size=200,
+                hidden_nodes=[],
+                corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+                learning_rate=0.1,
+                lower=21,
+                upper=109,
+                padding=0
+            )
+        )
     else:
         assert False
 
 
+def run_best_rnn(corpus):
+    # 0.17156129
+    if corpus == "two_piano_one_octave":
+        run_sequence_model(
+            Params(
+                epochs=50,
+                train_size=4,
+                test_size=1,
+                hidden_nodes=[],
+                corpus="two_piano_one_octave",
+                learning_rate=0.002,
+                lower=60,
+                upper=72,
+                padding=0,
+                batch_size=1,
+                steps=50,
+                hidden=8,
+                graph_type="bi_rnn"
+            )
+        )
+    elif corpus == "five_piano_two_middle_octaves":
+        # 0.17442912
+        run_sequence_model(
+            Params(
+                epochs=11,
+                train_size=150,
+                test_size=50,
+                hidden_nodes=[],
+                corpus="five_piano_two_middle_octaves",
+                learning_rate=0.01,
+                lower=48,
+                upper=72,
+                padding=0,
+                batch_size=16,
+                steps=200,
+                hidden=64,
+                graph_type="lstm"
+            )
+        )
+    elif corpus == "five_piano_magic":
+        # 0.10388491
+        run_sequence_model(
+            Params(
+                epochs=20,
+                train_size=400,
+                test_size=100,
+                hidden_nodes=[],
+                corpus="five_piano_magic",
+                learning_rate=0.01,
+                lower=21,
+                upper=109,
+                padding=0,
+                batch_size=16,
+                steps=200,
+                hidden=64,
+                graph_type="lstm"
+            )
+        )
+    elif corpus == "":
+        # 0.15517218
+        run_sequence_model(
+            Params(
+                epochs=95,
+                train_size=600,
+                test_size=200,
+                hidden_nodes=[],
+                corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+                learning_rate=0.01,
+                lower=21,
+                upper=109,
+                padding=0,
+                batch_size=16,
+                steps=500,
+                hidden=64,
+                graph_type="lstm"
+            )
+        )
+    else:
+        assert False
+
 if __name__ == "__main__":
+    # Score to beat (LSTM): 0.15517218
     run_sequence_model(
         Params(
-            epochs=50,
-            train_size=4,
-            test_size=1,
+            epochs=95,
+            train_size=600,
+            test_size=200,
             hidden_nodes=[],
-            corpus="two_piano_one_octave",
-            learning_rate=0.002,
-            lower=60,
-            upper=72,
+            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+            learning_rate=0.01,
+            lower=21,
+            upper=109,
             padding=0,
-            batch_size=1,
-            steps=50,
-            hidden=8,
-            graph_type="rnn"
+            batch_size=16,
+            steps=500,
+            hidden=64,
+            graph_type="lstm"
         )
     )
