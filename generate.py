@@ -55,8 +55,8 @@ def down_one(note, key):
         return key[key.index(note) - 1]
 
 
-def random_velocity():
-    return lambda: random.randint(0, 127)
+def random_velocity(lower=0, upper=127):
+    return lambda: random.randint(lower, upper)
 
 
 def fixed_velocity(l):
@@ -112,7 +112,7 @@ def random_track(measures, measure_length, polyphony, velocity, rest_probability
     return track
 
 
-def random_pattern(polyphony, velocity, notes, rest_probability=0.05):
+def random_pattern(polyphony, velocity, notes, rest_probability=0.1):
     pattern = midi.Pattern()
     pattern.append(random_track(100, 50, polyphony, velocity, rest_probability, notes))
     eot = midi.EndOfTrackEvent(tick=1)
@@ -133,13 +133,13 @@ def generate_pair(num, out_file, corpus_name, polyphony, velocity, notes=PIANO_N
 
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
-    number = 500
-    cn = "five_piano_magic"
+    number = 800
+    cn = "piano_notes_88_poly_3_to_15_velocity_63_to_127"
     if not os.path.exists(cn):
         os.makedirs(cn)
         print "Created directory %s" % cn
-    p = fixed_polyphony(5)
-    v = fixed_velocity(96)
+    p = random_polyphony(3, 15)
+    v = random_velocity(63, 127)
     for n in range(0, number):
         generate_pair(n, of, cn, p, v, notes=PIANO_NOTES)
         print "Completed %d of %d in [%s]" % (n + 1, number, cn)
