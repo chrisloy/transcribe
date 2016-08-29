@@ -492,9 +492,9 @@ if __name__ == "__main__":
     # Score to beat (LSTM): 0.15517218
     run_sequence_model(
         Params(
-            epochs=40,
-            train_size=60,
-            test_size=20,
+            epochs=95,
+            train_size=600,
+            test_size=200,
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
             learning_rate=0.01,
             lower=21,
@@ -506,9 +506,9 @@ if __name__ == "__main__":
             graph_type="lstm"
         ),
         pre_p=Params(
-            epochs=10,
-            train_size=20,
-            test_size=5,
+            epochs=3,
+            train_size=48,
+            test_size=2,
             corpus="piano_notes_88_mono_velocity_95",
             learning_rate=0.01,
             lower=21,
