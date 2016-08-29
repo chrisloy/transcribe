@@ -3,7 +3,6 @@ import midi
 import os
 import preprocess
 import slicer
-import spectrogram
 import sys
 from functools import partial
 from multiprocessing import Pool
@@ -125,6 +124,7 @@ def to_x_and_slices(data):
 
 
 def load_x(wav_file, engine, coarse):
+    import spectrogram
     x, s = to_x_and_slices(spectrogram.spectrogram_cqt(wav_file, engine))
     return coarsely(x, s, coarse)
 
@@ -181,6 +181,7 @@ def load_slices(a, b, slice_samples, from_cache, corpus, lower, upper, coarse):
             y.append(yi)
 
     else:
+        import spectrogram
         engine = spectrogram.cqt_engine(slice_samples, 60)
         for i in range(a, b):
             sys.stdout.write("%d/%d\r" % (i - a, b - a))

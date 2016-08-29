@@ -1,6 +1,5 @@
 import cPickle
 import os
-import spectrogram
 import sys
 
 
@@ -8,6 +7,7 @@ import sys
 
 
 def cache_features(source, target, engine):
+    import spectrogram
     features = spectrogram.spectrogram_cqt(source, engine)
     with open(target, 'wb') as fp:
         cPickle.dump(features, fp)
@@ -21,6 +21,7 @@ def refresh(target):
 if __name__ == "__main__":
     corpus = sys.argv[1]
     corpus_length = len(filter(lambda x: x.endswith(".wav"), os.listdir(corpus)))
+    import spectrogram
     e = spectrogram.cqt_engine(512, 60)
     for i in range(corpus_length):
         sys.stdout.write("%d/%d\r" % (i + 1, corpus_length))
