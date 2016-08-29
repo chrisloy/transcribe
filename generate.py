@@ -133,13 +133,13 @@ def generate_pair(num, out_file, corpus_name, polyphony, velocity, notes=PIANO_N
 
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
-    number = 800
-    cn = "piano_notes_88_poly_3_to_15_velocity_63_to_127"
+    number = 50
+    cn = "piano_notes_88_mono_velocity_95"
     if not os.path.exists(cn):
         os.makedirs(cn)
         print "Created directory %s" % cn
-    p = random_polyphony(3, 15)
-    v = random_velocity(63, 127)
+    p = fixed_polyphony(1)
+    v = fixed_velocity(95)
     for n in range(0, number):
         generate_pair(n, of, cn, p, v, notes=PIANO_NOTES)
         print "Completed %d of %d in [%s]" % (n + 1, number, cn)
