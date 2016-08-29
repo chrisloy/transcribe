@@ -1,6 +1,4 @@
 *.pyc
-output
-*piano*
 .DS_Store
 .idea
 corpus

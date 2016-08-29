@@ -124,9 +124,9 @@ def write_wav_file(mid_file_name, wav_file_name, out_file):
     call(["/usr/local/bin/timidity", mid_file_name, "-Ow", "-o", wav_file_name], stdout=out_file, stderr=out_file)
 
 
-def generate_pair(num, out_file, corpus_name, polyphony, velocity, notes=PIANO_NOTES):
-    mid_file_name = "%s/%04d.mid" % (corpus_name, num)
-    wav_file_name = "%s/%04d.wav" % (corpus_name, num)
+def generate_pair(num, out_file, corpus, polyphony, velocity, notes=PIANO_NOTES):
+    mid_file_name = "%s/%04d.mid" % (corpus, num)
+    wav_file_name = "%s/%04d.wav" % (corpus, num)
     midi.write_midifile(mid_file_name, random_pattern(polyphony, velocity, notes))
     write_wav_file(mid_file_name, wav_file_name, out_file)
 
@@ -135,11 +135,12 @@ if __name__ == "__main__":
     of = open(os.devnull, 'w')
     number = 50
     cn = "piano_notes_88_mono_velocity_95"
-    if not os.path.exists(cn):
-        os.makedirs(cn)
-        print "Created directory %s" % cn
+    c = "corpus/%s" % cn
+    if not os.path.exists(c):
+        os.makedirs(c)
+        print "Created directory %s" % c
     p = fixed_polyphony(1)
     v = fixed_velocity(95)
     for n in range(0, number):
-        generate_pair(n, of, cn, p, v, notes=PIANO_NOTES)
-        print "Completed %d of %d in [%s]" % (n + 1, number, cn)
+        generate_pair(n, of, c, p, v, notes=PIANO_NOTES)
+        print "Completed %d of %d in [%s]" % (n + 1, number, c)

@@ -196,8 +196,9 @@ def load_slices(a, b, slice_samples, from_cache, corpus, lower, upper, coarse):
     return np.transpose(x), np.transpose(y)
 
 
-def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus, lower, upper, coarse=False):
+def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus_name, lower, upper, coarse=False):
     file_ext = ".p" if from_cache else ".wav"
+    corpus = "corpus/%s" % corpus_name
     corpus_length = len(filter(lambda x: x.endswith(file_ext), os.listdir(corpus)))
     assert train_size + test_size <= corpus_length, "Cannot produce %d examples from corpus of size %d" % (
                                                     train_size + test_size, corpus_length)

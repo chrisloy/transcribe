@@ -19,7 +19,8 @@ def refresh(target):
 
 
 if __name__ == "__main__":
-    corpus = sys.argv[1]
+    corpus_name = sys.argv[1]
+    corpus = "corpus/%s" % corpus_name
     corpus_length = len(filter(lambda x: x.endswith(".wav"), os.listdir(corpus)))
     import spectrogram
     e = spectrogram.cqt_engine(512, 60)
