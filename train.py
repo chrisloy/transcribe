@@ -44,6 +44,44 @@ def train_model(epochs, m, d, report_epochs=10):
                 })
 
 
+def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
+    for j in range(epochs + 1):
+
+        if j == epochs or j % report_epochs == 0:
+            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
+                             (
+                                 j,
+                                 epochs,
+                                 m.report_name,
+                                 m.report_target.eval(feed_dict={
+                                     m.x:       d.x_train,
+                                     m.y_gold:  d.y_train,
+                                     m.i_state: d.init_train
+                                 }),
+                                 m.report_name,
+                                 m.report_target.eval(feed_dict={
+                                     m.x:       d.x_test,
+                                     m.y_gold:  d.y_test,
+                                     m.i_state: d.init_test
+                                 })
+                             ))
+            sys.stdout.flush()
+
+        if j < epochs:
+            for k in range(d.batches):
+                sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, epochs, k + 1, d.batches))
+                sys.stdout.flush()
+
+                start = k * d.batch_size
+                stop = (k + 1) * d.batch_size
+
+                m.train_step.run(feed_dict={
+                    m.x:       d.x_train[start:stop, :, :],
+                    m.y_gold:  d.y_train[start:stop, :, :],
+                    m.i_state: np.zeros([d.batch_size, i_state_shape])
+                })
+
+
 def run_joint_model(p, from_cache=True):
     with tf.Session() as sess:
         d = data.load(
@@ -71,7 +109,7 @@ def run_joint_model(p, from_cache=True):
         report_poly_stats(y_pred, d.y_test)
 
 
-def run_sequence_model(p, from_cache=True):
+def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10):
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
@@ -81,48 +119,28 @@ def run_sequence_model(p, from_cache=True):
 
         sess.run(tf.initialize_all_variables())
 
-        report_epochs = 10
-        i_state_shape = p.hidden
-        i_state_shape = i_state_shape * 2 if p.graph_type == 'lstm' else i_state_shape
+        i_state_shape = p.hidden * 2 if p.graph_type == 'lstm' else p.hidden
 
-        d.init_train = np.zeros([d.n_train, i_state_shape])
-        d.init_test = np.zeros([d.n_test, i_state_shape])
+        d.set_init(i_state_shape)
 
-        for j in range(p.epochs + 1):
+        if pre_p:
+            pre_d = data.load(
+                pre_p.train_size,
+                pre_p.test_size,
+                pre_p.slice_samples,
+                from_cache,
+                p.batch_size,
+                pre_p.corpus,
+                p.lower,
+                p.upper
+            ).to_padded(p.padding).to_sparse().to_sequences(p.steps)
+            pre_d.set_test(d.x_test, d.y_test)
+            pre_d.set_init(i_state_shape)
+            print "Pre-training with %s" % pre_p.corpus
+            train_sequence_model(pre_p.epochs, m, pre_d, 1, i_state_shape)
+            print "Completed pre-training"
 
-            if j == p.epochs or j % report_epochs == 0:
-                sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
-                                 (
-                                     j,
-                                     p.epochs,
-                                     m.report_name,
-                                     m.report_target.eval(feed_dict={
-                                         m.x:       d.x_train,
-                                         m.y_gold:  d.y_train,
-                                         m.i_state: d.init_train
-                                     }),
-                                     m.report_name,
-                                     m.report_target.eval(feed_dict={
-                                         m.x:       d.x_test,
-                                         m.y_gold:  d.y_test,
-                                         m.i_state: d.init_test
-                                     })
-                                 ))
-                sys.stdout.flush()
-
-            if j < p.epochs:
-                for k in range(d.batches):
-                    sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, p.epochs, k + 1, d.batches))
-                    sys.stdout.flush()
-
-                    start = k * d.batch_size
-                    stop = (k + 1) * d.batch_size
-
-                    m.train_step.run(feed_dict={
-                        m.x:       d.x_train[start:stop, :, :],
-                        m.y_gold:  d.y_train[start:stop, :, :],
-                        m.i_state: np.zeros([p.batch_size, i_state_shape])
-                    })
+        train_sequence_model(p.epochs, m, d, report_epochs, i_state_shape)
 
         persist.save(sess, m, d, p)
 
@@ -140,7 +158,7 @@ def squash_sequences(foo):
     return np.reshape(foo, [-1, foo.shape[-1]])
 
 
-def report_poly_stats(y_pred, y_gold, show_graph=True):
+def report_poly_stats(y_pred, y_gold, show_graph=True, breakdown=True):
     print "     |              ON               |              OFF              |"
     print "-" * 112
     print "Note |   Count       Mean    Std Dev |   Count       Mean    Std Dev |" \
@@ -149,41 +167,43 @@ def report_poly_stats(y_pred, y_gold, show_graph=True):
 
     notes = range(0, y_gold.shape[1])
 
-    for n in notes:
-        y_pred_n = y_pred[:, n]
-        y_true_n = y_gold[:, n]
+    if breakdown:
+        for n in notes:
+            y_pred_n = y_pred[:, n]
+            y_true_n = y_gold[:, n]
 
-        ons = y_pred_n[y_true_n == 1]
-        offs = y_pred_n[y_true_n == 0]
+            ons = y_pred_n[y_true_n == 1]
+            offs = y_pred_n[y_true_n == 0]
 
-        if ons.size == 0 or offs.size == 0:
-            print "x" * 112
-            continue
+            if ons.size == 0 or offs.size == 0:
+                print "x" * 112
+                continue
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            print "%4d | %7d   %f   %f | %7d   %f   %f | %f   %f   %f   %f" % (
-                n,
-                len(ons),
-                float(np.mean(ons)),
-                float(np.std(ons)),
-                len(offs),
-                float(np.mean(offs)),
-                float(np.std(offs)),
-                precision_score(y_true_n, y_pred_n >= 0.5),
-                recall_score(y_true_n, y_pred_n >= 0.5),
-                f1_score(y_true_n, y_pred_n >= 0.5),
-                roc_auc_score(y_true_n, y_pred_n)
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                print "%4d | %7d   %f   %f | %7d   %f   %f | %f   %f   %f   %f" % (
+                    n,
+                    len(ons),
+                    float(np.mean(ons)),
+                    float(np.std(ons)),
+                    len(offs),
+                    float(np.mean(offs)),
+                    float(np.std(offs)),
+                    precision_score(y_true_n, y_pred_n >= 0.5),
+                    recall_score(y_true_n, y_pred_n >= 0.5),
+                    f1_score(y_true_n, y_pred_n >= 0.5),
+                    roc_auc_score(y_true_n, y_pred_n)
+                )
 
-        if show_graph:
-            fpr, tpr, thresholds = roc_curve(y_true_n, y_pred_n)
-            plt.plot(fpr, tpr)
+            if show_graph:
+                fpr, tpr, thresholds = roc_curve(y_true_n, y_pred_n)
+                plt.plot(fpr, tpr)
 
     if show_graph:
         fpr, tpr, thresholds = roc_curve(y_gold.flatten(), y_pred.flatten())
         plt.plot(fpr, tpr, linewidth=2)
-        plt.legend(map(str, notes) + ["overall"], loc='lower right')
+        if breakdown:
+            plt.legend(map(str, notes) + ["overall"], loc='lower right')
         plt.show()
 
 
@@ -472,10 +492,9 @@ if __name__ == "__main__":
     # Score to beat (LSTM): 0.15517218
     run_sequence_model(
         Params(
-            epochs=95,
-            train_size=600,
-            test_size=200,
-            hidden_nodes=[],
+            epochs=40,
+            train_size=60,
+            test_size=20,
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
             learning_rate=0.01,
             lower=21,
@@ -485,5 +504,20 @@ if __name__ == "__main__":
             steps=500,
             hidden=64,
             graph_type="lstm"
+        ),
+        pre_p=Params(
+            epochs=10,
+            train_size=20,
+            test_size=5,
+            corpus="piano_notes_88_mono_velocity_95",
+            learning_rate=0.01,
+            lower=21,
+            upper=109,
+            padding=0,
+            batch_size=16,
+            steps=500,
+            hidden=64,
+            graph_type="lstm"
         )
+
     )
