@@ -82,11 +82,16 @@ def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
                 })
 
 
-def run_joint_model(p, from_cache=True):
+def load_data(p, from_cache):
+    return data.load(
+        p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
+    ).to_padded(p.padding).to_sparse()
+
+
+def run_joint_model(p, from_cache=True, d=None, report_epochs=1):
+    if not d:
+        d = load_data(p, from_cache).to_shuffled()
     with tf.Session() as sess:
-        d = data.load(
-            p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-        ).to_padded(p.padding).to_shuffled().to_sparse()
         m = model.feed_forward_model(
             d.features,
             p.outputs(),
@@ -96,24 +101,24 @@ def run_joint_model(p, from_cache=True):
         )
 
         sess.run(tf.initialize_all_variables())
-        train_model(p.epochs, m, d, report_epochs=1)
+        train_model(p.epochs, m, d, report_epochs)
 
         persist.save(sess, m, d, p)
 
         print "TRAIN"
-        y_pred = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
-        report_poly_stats(y_pred, d.y_train)
+        y_pred_train = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
+        report_poly_stats(y_pred_train, d.y_train, breakdown=False)
 
         print "TEST"
-        y_pred = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
-        report_poly_stats(y_pred, d.y_test)
+        y_pred_test = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+        report_poly_stats(y_pred_test, d.y_test, breakdown=False)
+        plot_piano_roll(y_pred_test[:1500, 30:85], d.y_test[:1500, 30:85])
 
 
-def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10):
+def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None):
     with tf.Session() as sess:
-        d = data.load(
-            p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-        ).to_padded(p.padding).to_sparse().to_sequences(p.steps)
+        if not d:
+            d = load_data(p, from_cache).to_sequences(p.steps)
 
         m = model.rnn_model(d.features, p.outputs(), p.steps, p.hidden, p.graph_type, p.learning_rate)
 
@@ -133,7 +138,7 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10):
                 pre_p.corpus,
                 p.lower,
                 p.upper
-            ).to_padded(p.padding).to_sparse().to_sequences(p.steps)
+            ).to_padded(p.padding).to_sparse().to_normalised().to_sequences(p.steps)
             pre_d.set_test(d.x_test, d.y_test)
             pre_d.set_init(i_state_shape)
             print "Pre-training with %s" % pre_p.corpus
@@ -148,10 +153,12 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10):
         y_pred_test = m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess)
 
         print "TRAIN"
-        report_poly_stats(squash_sequences(y_pred_train), squash_sequences(d.y_train))
+        report_poly_stats(squash_sequences(y_pred_train), squash_sequences(d.y_train), breakdown=False)
+        plot_piano_roll(y_pred_train[:5000, :], d.y_train[:5000, :])
 
         print "TEST"
-        report_poly_stats(squash_sequences(y_pred_test), squash_sequences(d.y_test))
+        report_poly_stats(squash_sequences(y_pred_test), squash_sequences(d.y_test), breakdown=False)
+        plot_piano_roll(y_pred_test[:5000, :], d.y_test[:5000, :])
 
 
 def squash_sequences(foo):
@@ -159,15 +166,15 @@ def squash_sequences(foo):
 
 
 def report_poly_stats(y_pred, y_gold, show_graph=True, breakdown=True):
-    print "     |              ON               |              OFF              |"
-    print "-" * 112
-    print "Note |   Count       Mean    Std Dev |   Count       Mean    Std Dev |" \
-          "     Prec     Recall         F1    ROC AUC"
-    print "-" * 112
 
     notes = range(0, y_gold.shape[1])
 
     if breakdown:
+        print "     |              ON               |              OFF              |"
+        print "-" * 112
+        print "Note |   Count       Mean    Std Dev |   Count       Mean    Std Dev |" \
+              "     Prec     Recall         F1    ROC AUC"
+        print "-" * 112
         for n in notes:
             y_pred_n = y_pred[:, n]
             y_true_n = y_gold[:, n]
@@ -258,6 +265,23 @@ def plot_confusion_heat_map(gold, pred):
     plt.ylabel('Y')
     plt.xlabel('X')
     plt.colorbar()
+    plt.show()
+
+
+def plot_piano_roll(y_pred, y_gold):
+
+    plt.subplot(2, 1, 1)
+    plt.pcolormesh(range(y_pred.shape[0]), range(y_pred.shape[1]), np.transpose(y_pred))
+    plt.ylabel('Y')
+    plt.xlabel('X')
+    plt.colorbar()
+
+    plt.subplot(2, 1, 2)
+    plt.pcolormesh(range(y_gold.shape[0]), range(y_gold.shape[1]), np.transpose(y_gold))
+    plt.ylabel('Y')
+    plt.xlabel('X')
+    plt.colorbar()
+
     plt.show()
 
 
@@ -489,35 +513,18 @@ def run_best_rnn(corpus):
         assert False
 
 if __name__ == "__main__":
-    # Score to beat (LSTM): 0.15517218
-    run_sequence_model(
+    # Scores to beat:     (LSTM): 0.15517218    (Logistic regression): 0.15937304
+    run_joint_model(
         Params(
-            epochs=95,
-            train_size=600,
-            test_size=200,
+            epochs=500,
+            train_size=400,
+            test_size=100,
+            hidden_nodes=[172, 172],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.01,
+            learning_rate=0.003,
             lower=21,
             upper=109,
-            padding=0,
-            batch_size=16,
-            steps=500,
-            hidden=64,
-            graph_type="lstm"
+            padding=1
         ),
-        pre_p=Params(
-            epochs=3,
-            train_size=48,
-            test_size=2,
-            corpus="piano_notes_88_mono_velocity_95",
-            learning_rate=0.01,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=16,
-            steps=500,
-            hidden=64,
-            graph_type="lstm"
-        )
-
+        report_epochs=20
     )
