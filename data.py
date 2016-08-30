@@ -38,6 +38,15 @@ class Data:
         self.y_test = y_test
         self.n_test = x_test.shape[0]
 
+    def to_normalised(self):
+        print np.min(self.x_train), np.max(self.x_train), np.mean(self.x_train), np.var(self.x_train)
+        mean = np.mean(self.x_train, axis=0)
+        var = np.var(self.x_train, axis=0)
+        print np.min(mean), np.max(mean), np.min(var), np.max(var)
+        self.x_train = (self.x_train - mean) / var
+        self.x_test = (self.x_test - mean) / var
+        return self
+
     def to_binary_one_hot(self):
         # Change y labels into one-hot vectors in two dimensions.
         y_train = np.stack([1 - self.y_train, self.y_train], axis=2)
