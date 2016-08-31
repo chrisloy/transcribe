@@ -99,7 +99,7 @@ def load_data(p, from_cache):
     ).to_padded(p.padding).to_sparse()
 
 
-def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None):
+def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None, ui=True):
     if not d:
         d = load_data(p, from_cache).to_shuffled()
     with tf.Session() as sess:
@@ -127,12 +127,14 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
 
         print "TRAIN"
         y_pred_train = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
-        report_poly_stats(y_pred_train, d.y_train, breakdown=False)
+        report_poly_stats(y_pred_train, d.y_train, breakdown=True, ui=ui)
 
         print "TEST"
         y_pred_test = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
-        report_poly_stats(y_pred_test, d.y_test, breakdown=False)
-        plot_piano_roll(y_pred_test[:1500, 30:85], d.y_test[:1500, 30:85])
+        report_poly_stats(y_pred_test, d.y_test, breakdown=True, ui=ui)
+
+        if ui:
+            plot_piano_roll(y_pred_test[:1500, 30:85], d.y_test[:1500, 30:85])
 
 
 def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None):
@@ -177,16 +179,16 @@ def squash_sequences(foo):
     return np.reshape(foo, [-1, foo.shape[-1]])
 
 
-def report_poly_stats(y_pred, y_gold, show_graph=True, breakdown=True):
+def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True):
 
     notes = range(0, y_gold.shape[1])
 
+    print "     |              ON               |              OFF              |"
+    print "-" * 112
+    print "Note |   Count       Mean    Std Dev |   Count       Mean    Std Dev |" \
+          "     Prec     Recall         F1    ROC AUC"
+    print "-" * 112
     if breakdown:
-        print "     |              ON               |              OFF              |"
-        print "-" * 112
-        print "Note |   Count       Mean    Std Dev |   Count       Mean    Std Dev |" \
-              "     Prec     Recall         F1    ROC AUC"
-        print "-" * 112
         for n in notes:
             y_pred_n = y_pred[:, n]
             y_true_n = y_gold[:, n]
@@ -214,11 +216,28 @@ def report_poly_stats(y_pred, y_gold, show_graph=True, breakdown=True):
                     roc_auc_score(y_true_n, y_pred_n)
                 )
 
-            if show_graph:
+            if ui:
                 fpr, tpr, thresholds = roc_curve(y_true_n, y_pred_n)
                 plt.plot(fpr, tpr)
+        print "-" * 112
+    ons = y_pred[y_gold == 1]
+    offs = y_pred[y_gold == 0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print "ALL  | %7d   %f   %f | %7d   %f   %f | %f   %f   %f   %f" % (
+            len(ons),
+            float(np.mean(ons)),
+            float(np.std(ons)),
+            len(offs),
+            float(np.mean(offs)),
+            float(np.std(offs)),
+            precision_score(y_gold, y_pred >= 0.5),
+            recall_score(y_gold, y_pred >= 0.5),
+            f1_score(y_gold, y_pred >= 0.5),
+            roc_auc_score(y_gold, y_pred)
+        )
 
-    if show_graph:
+    if ui:
         fpr, tpr, thresholds = roc_curve(y_gold.flatten(), y_pred.flatten())
         plt.plot(fpr, tpr, linewidth=2)
         if breakdown:
@@ -518,5 +537,6 @@ if __name__ == "__main__":
             lower=21,
             upper=109,
             padding=0
-        )
+        ),
+        ui=False
     )
