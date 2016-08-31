@@ -20,10 +20,12 @@ def refresh(target):
 
 if __name__ == "__main__":
     corpus_name = sys.argv[1]
+    num = int(sys.argv[2]) if len(sys.argv) > 2 else 60
+    print "Pre-processing corpus [%s] with [%d] features per octave" % (corpus_name, num)
     corpus = "corpus/%s" % corpus_name
     corpus_length = len(filter(lambda x: x.endswith(".wav"), os.listdir(corpus)))
     import spectrogram
-    e = spectrogram.cqt_engine(512, 60)
+    e = spectrogram.cqt_engine(512, num)
     for i in range(corpus_length):
         sys.stdout.write("%d/%d\r" % (i + 1, corpus_length))
         sys.stdout.flush()
