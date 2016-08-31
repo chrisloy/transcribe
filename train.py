@@ -88,7 +88,7 @@ def load_data(p, from_cache):
     ).to_padded(p.padding).to_sparse()
 
 
-def run_joint_model(p, from_cache=True, d=None, report_epochs=1):
+def run_joint_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None):
     if not d:
         d = load_data(p, from_cache).to_shuffled()
     with tf.Session() as sess:
@@ -101,6 +101,15 @@ def run_joint_model(p, from_cache=True, d=None, report_epochs=1):
         )
 
         sess.run(tf.initialize_all_variables())
+
+        if pre_p:
+            if not pre_d:
+                pre_d = load_data(pre_p, from_cache).to_shuffled()
+            pre_d.set_test(d.x_test, d.y_test)
+            print "Pre-training with %s" % pre_p.corpus
+            train_model(pre_p.epochs, m, pre_d, 1)
+            print "Completed pre-training"
+
         train_model(p.epochs, m, d, report_epochs)
 
         persist.save(sess, m, d, p)
@@ -115,7 +124,7 @@ def run_joint_model(p, from_cache=True, d=None, report_epochs=1):
         plot_piano_roll(y_pred_test[:1500, 30:85], d.y_test[:1500, 30:85])
 
 
-def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None):
+def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None):
     with tf.Session() as sess:
         if not d:
             d = load_data(p, from_cache).to_sequences(p.steps)
@@ -129,16 +138,8 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None)
         d.set_init(i_state_shape)
 
         if pre_p:
-            pre_d = data.load(
-                pre_p.train_size,
-                pre_p.test_size,
-                pre_p.slice_samples,
-                from_cache,
-                p.batch_size,
-                pre_p.corpus,
-                p.lower,
-                p.upper
-            ).to_padded(p.padding).to_sparse().to_normalised().to_sequences(p.steps)
+            if not pre_d:
+                pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
             pre_d.set_test(d.x_test, d.y_test)
             pre_d.set_init(i_state_shape)
             print "Pre-training with %s" % pre_p.corpus
@@ -516,15 +517,26 @@ if __name__ == "__main__":
     # Scores to beat:     (LSTM): 0.15517218    (Logistic regression): 0.15937304
     run_joint_model(
         Params(
-            epochs=500,
+            epochs=50,
             train_size=400,
-            test_size=100,
-            hidden_nodes=[172, 172],
+            test_size=200,
+            hidden_nodes=[],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.003,
+            learning_rate=0.03,
             lower=21,
             upper=109,
             padding=1
         ),
-        report_epochs=20
+        report_epochs=5,
+        pre_p=Params(
+            epochs=1,
+            train_size=48,
+            test_size=2,
+            hidden_nodes=[],
+            corpus="piano_notes_88_mono_velocity_95",
+            learning_rate=0.03,
+            lower=21,
+            upper=109,
+            padding=1
+        )
     )
