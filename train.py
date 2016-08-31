@@ -118,7 +118,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
                 pre_d = load_data(pre_p, from_cache).to_shuffled()
             pre_d.set_test(d.x_test, d.y_test)
             print "Pre-training with %s" % pre_p.corpus
-            train_model(pre_p.epochs, m, pre_d, 1)
+            train_model(pre_p.epochs, m, pre_d, report_epochs)
             print "Completed pre-training"
 
         train_model(p.epochs, m, d, report_epochs)
@@ -127,11 +127,11 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
 
         print "TRAIN"
         y_pred_train = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
-        report_poly_stats(y_pred_train, d.y_train, breakdown=True, ui=ui)
+        report_poly_stats(y_pred_train, d.y_train, breakdown=False, ui=ui)
 
         print "TEST"
         y_pred_test = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
-        report_poly_stats(y_pred_test, d.y_test, breakdown=True, ui=ui)
+        report_poly_stats(y_pred_test, d.y_test, breakdown=False, ui=ui)
 
         if ui:
             plot_piano_roll(y_pred_test[:1500, 30:85], d.y_test[:1500, 30:85])
@@ -156,7 +156,7 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
             pre_d.set_test(d.x_test, d.y_test)
             pre_d.set_init(i_state_shape)
             print "Pre-training with %s" % pre_p.corpus
-            train_sequence_model(pre_p.epochs, m, pre_d, 1, i_state_shape)
+            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs, i_state_shape)
             print "Completed pre-training"
 
         train_sequence_model(p.epochs, m, d, report_epochs, i_state_shape)
@@ -402,31 +402,34 @@ def run_best_time_slice(corpus):
             )
         )
     elif corpus == "piano_notes_88_poly_3_to_15_velocity_63_to_127":
-        # 0.15908915
+        # 0.15545212  /  0.918007 ROC AUC
         run_frame_model(
             Params(
-                epochs=3,
+                epochs=100,
                 train_size=600,
                 test_size=200,
-                hidden_nodes=[],
+                hidden_nodes=[176],
                 corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-                learning_rate=0.1,
+                learning_rate=0.005,
                 lower=21,
                 upper=109,
-                padding=0
+                padding=0,
+                batch_size=512
             ),
             report_epochs=1,
             pre_p=Params(
-                epochs=1,
+                epochs=20,
                 train_size=48,
                 test_size=2,
-                hidden_nodes=[],
+                hidden_nodes=[176],
                 corpus="piano_notes_88_mono_velocity_95",
-                learning_rate=0.1,
+                learning_rate=0.03,
                 lower=21,
                 upper=109,
-                padding=0
-            )
+                padding=0,
+                batch_size=512
+            ),
+            ui=False
         )
     else:
         assert False
@@ -516,27 +519,27 @@ if __name__ == "__main__":
     # Scores to beat:     (LSTM): 0.15517218    (Logistic regression): 0.15908915
     run_frame_model(
         Params(
-            epochs=3,
+            epochs=100,
             train_size=600,
             test_size=200,
-            hidden_nodes=[],
+            hidden_nodes=[176],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.1,
+            learning_rate=0.01,
             lower=21,
             upper=109,
-            padding=0
+            padding=0,
+            batch_size=512
         ),
         report_epochs=1,
         pre_p=Params(
             epochs=1,
             train_size=48,
             test_size=2,
-            hidden_nodes=[],
+            hidden_nodes=[176],
             corpus="piano_notes_88_mono_velocity_95",
             learning_rate=0.1,
             lower=21,
             upper=109,
             padding=0
-        ),
-        ui=False
+        )
     )
