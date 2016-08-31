@@ -7,6 +7,7 @@ import persist
 import slicer
 import sys
 import tensorflow as tf
+import time
 import warnings
 from collections import defaultdict
 from domain import Params
@@ -16,18 +17,23 @@ from os import devnull
 
 
 def train_model(epochs, m, d, report_epochs=10):
-    print "Training model with %d features..." % d.features
+    epoch_time = 0.0
+    j_last = -1
     for j in range(epochs + 1):
+        t1 = time.time()
         if j == epochs or j % report_epochs == 0:
-            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
+            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
                              (
                                  j,
                                  epochs,
                                  m.report_name,
                                  m.report_target.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train}),
                                  m.report_name,
-                                 m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test})
+                                 m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test}),
+                                 float(epoch_time) / float(j - j_last)
                              ))
+            j_last = j
+            epoch_time = 0.0
             sys.stdout.flush()
 
         if j < epochs:
@@ -42,13 +48,17 @@ def train_model(epochs, m, d, report_epochs=10):
                     m.x:      d.x_train[start:stop, :],
                     m.y_gold: d.y_train[start:stop, :]
                 })
+        t2 = time.time()
+        epoch_time += (t2 - t1)
 
 
 def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
+    t1 = time.time()
+    j_last = 0
     for j in range(epochs + 1):
-
         if j == epochs or j % report_epochs == 0:
-            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f\n" %
+            t2 = time.time()
+            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
                              (
                                  j,
                                  epochs,
@@ -63,7 +73,8 @@ def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
                                      m.x:       d.x_test,
                                      m.y_gold:  d.y_test,
                                      m.i_state: d.init_test
-                                 })
+                                 }),
+                                 0.0 if j_last == 0 else (t2 - t1) / (j - j_last)
                              ))
             sys.stdout.flush()
 
@@ -88,7 +99,7 @@ def load_data(p, from_cache):
     ).to_padded(p.padding).to_sparse()
 
 
-def run_joint_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None):
+def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None):
     if not d:
         d = load_data(p, from_cache).to_shuffled()
     with tf.Session() as sess:
@@ -315,7 +326,7 @@ def run_best_time_slice(corpus):
     # TODO just search graphs for this
     if corpus == "two_piano_one_octave":
         # 0.14709036
-        run_joint_model(
+        run_frame_model(
             Params(
                 epochs=10,
                 train_size=40,
@@ -325,20 +336,6 @@ def run_best_time_slice(corpus):
                 learning_rate=0.5,
                 lower=60,
                 upper=72,
-                padding=0
-            )
-        )
-    elif corpus == "mono_piano_simple":
-        run_one_hot_joint_model(
-            Params(
-                epochs=100,
-                train_size=90,
-                test_size=10,
-                hidden_nodes=[],
-                corpus="mono_piano_simple",
-                learning_rate=0.05,
-                lower=21,
-                upper=109,
                 padding=0
             )
         )
@@ -370,38 +367,9 @@ def run_best_time_slice(corpus):
                 padding=0
             )
         )
-    elif corpus == "two_piano_one_octave_big":
-        run_joint_model(
-            Params(
-                epochs=50,
-                train_size=400,
-                test_size=100,
-                hidden_nodes=[],
-                corpus="two_piano_one_octave_big",
-                learning_rate=0.05,
-                lower=60,
-                upper=72,
-                padding=0
-            )
-        )
-    elif corpus == "five_piano_simple":
-        # 0.06993538
-        run_joint_model(
-            Params(
-                epochs=4,
-                train_size=400,
-                test_size=100,
-                hidden_nodes=[],
-                corpus="five_piano_simple",
-                learning_rate=0.1,
-                lower=21,
-                upper=109,
-                padding=0
-            )
-        )
     elif corpus == "five_piano_magic":
         # 0.09098092
-        run_joint_model(
+        run_frame_model(
             Params(
                 epochs=4,
                 train_size=400,
@@ -415,14 +383,26 @@ def run_best_time_slice(corpus):
             )
         )
     elif corpus == "piano_notes_88_poly_3_to_15_velocity_63_to_127":
-        # 0.15937304
-        run_joint_model(
+        # 0.15908915
+        run_frame_model(
             Params(
-                epochs=2,
+                epochs=3,
                 train_size=600,
                 test_size=200,
                 hidden_nodes=[],
                 corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+                learning_rate=0.1,
+                lower=21,
+                upper=109,
+                padding=0
+            ),
+            report_epochs=1,
+            pre_p=Params(
+                epochs=1,
+                train_size=48,
+                test_size=2,
+                hidden_nodes=[],
+                corpus="piano_notes_88_mono_velocity_95",
                 learning_rate=0.1,
                 lower=21,
                 upper=109,
@@ -514,29 +494,29 @@ def run_best_rnn(corpus):
         assert False
 
 if __name__ == "__main__":
-    # Scores to beat:     (LSTM): 0.15517218    (Logistic regression): 0.15937304
-    run_joint_model(
+    # Scores to beat:     (LSTM): 0.15517218    (Logistic regression): 0.15908915
+    run_frame_model(
         Params(
-            epochs=50,
-            train_size=400,
+            epochs=3,
+            train_size=600,
             test_size=200,
             hidden_nodes=[],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.03,
+            learning_rate=0.1,
             lower=21,
             upper=109,
-            padding=1
+            padding=0
         ),
-        report_epochs=5,
+        report_epochs=1,
         pre_p=Params(
             epochs=1,
             train_size=48,
             test_size=2,
             hidden_nodes=[],
             corpus="piano_notes_88_mono_velocity_95",
-            learning_rate=0.03,
+            learning_rate=0.1,
             lower=21,
             upper=109,
-            padding=1
+            padding=0
         )
     )
