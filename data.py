@@ -209,6 +209,7 @@ def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus_na
     file_ext = ".p" if from_cache else ".wav"
     corpus = "corpus/%s" % corpus_name
     corpus_length = len(filter(lambda x: x.endswith(file_ext), os.listdir(corpus)))
+    print "Corpus [%s] contains [%d] tracks" % (corpus_name, corpus_length)
     assert train_size + test_size <= corpus_length, "Cannot produce %d examples from corpus of size %d" % (
                                                     train_size + test_size, corpus_length)
     print "Loading training set...."
@@ -222,4 +223,5 @@ def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus_na
     )
 
     batches = x_train.shape[0] / batch_size
+    print "Corpus loaded with [%d] training data and [%d] testing data" % (x_train.shape[0], x_test.shape[0])
     return Data(x_train, y_train, x_test, y_test, batches, batch_size)
