@@ -402,10 +402,10 @@ def run_best_time_slice(corpus):
             )
         )
     elif corpus == "piano_notes_88_poly_3_to_15_velocity_63_to_127":
-        # 0.15545212  /  0.918007 ROC AUC
+        # 0.15406726  /  0.919213 ROC AUC
         run_frame_model(
             Params(
-                epochs=100,
+                epochs=200,
                 train_size=600,
                 test_size=200,
                 hidden_nodes=[176],
@@ -414,11 +414,11 @@ def run_best_time_slice(corpus):
                 lower=21,
                 upper=109,
                 padding=0,
-                batch_size=512
+                batch_size=4096
             ),
-            report_epochs=1,
+            report_epochs=20,
             pre_p=Params(
-                epochs=20,
+                epochs=200,
                 train_size=48,
                 test_size=2,
                 hidden_nodes=[176],
@@ -427,7 +427,7 @@ def run_best_time_slice(corpus):
                 lower=21,
                 upper=109,
                 padding=0,
-                batch_size=512
+                batch_size=4096
             ),
             ui=False
         )
