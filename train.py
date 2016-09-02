@@ -108,7 +108,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
             p.outputs(),
             hidden_nodes=p.hidden_nodes,
             learning_rate=p.learning_rate,
-            dropout=True
+            dropout=p.dropout
         )
 
         sess.run(tf.initialize_all_variables())
@@ -516,7 +516,11 @@ def run_best_rnn(corpus):
         assert False
 
 if __name__ == "__main__":
-    # Scores to beat:     (LSTM): 0.15517218    (Logistic regression): 0.15908915
+    # Scores to beat:
+    # LSTM:                                     0.15517218
+    # Frame: 0 hidden layers:                   0.15908915
+    # Frame: 1 hidden layer:    DROPOUT: 0.5    0.15406726   (0.919213 ROC AUC)
+    # Frame: 2 hidden layers:   DROPOUT: None   0.15111840   (0.923800 ROC AUC) marveled-pan's
     run_frame_model(
         Params(
             epochs=100,
@@ -542,4 +546,35 @@ if __name__ == "__main__":
             upper=109,
             padding=0
         )
+    )
+
+    # Best 2-layer  (0.15111840 / 0.923800)  /  DROPOUT = OFF
+    run_frame_model(
+        Params(
+            epochs=220,
+            train_size=600,
+            test_size=200,
+            hidden_nodes=[176, 132],
+            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+            learning_rate=0.007,
+            lower=21,
+            upper=109,
+            padding=0,
+            batch_size=4096,
+            dropout=False
+        ),
+        report_epochs=10,
+        pre_p=Params(
+            epochs=50,
+            train_size=48,
+            test_size=2,
+            hidden_nodes=[176, 132],
+            corpus="piano_notes_88_mono_velocity_95",
+            learning_rate=0.4,
+            lower=21,
+            upper=109,
+            padding=0,
+            batch_size=4096
+        ),
+        ui=False
     )
