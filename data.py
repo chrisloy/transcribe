@@ -117,12 +117,6 @@ class Data:
 
         return self
 
-    def without_sequences(self):
-        self.x_train = np.reshape(self.x_train, [-1, -1])
-        self.y_train = np.reshape(self.y_train, [-1, -1])
-        self.x_test = np.reshape(self.x_test, [-1, -1])
-        self.y_test = np.reshape(self.y_test, [-1, -1])
-
 
 def poly_kernel(x):
     return PolynomialFeatures(degree=2, interaction_only=True).fit_transform(x)
