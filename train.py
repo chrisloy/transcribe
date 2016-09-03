@@ -137,7 +137,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
             plot_piano_roll(y_pred_test[:1500, 30:85], d.y_test[:1500, 30:85])
 
 
-def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None):
+def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
     with tf.Session() as sess:
         if not d:
             d = load_data(p, from_cache).to_sequences(p.steps)
@@ -170,12 +170,13 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         y_gold_test = unroll_sequences(d.y_test)
 
         print "TRAIN"
-        report_poly_stats(y_pred_train, y_gold_train, breakdown=False)
-        plot_piano_roll(y_pred_train[:1500, :], y_gold_train[:1500, :])
+        report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui)
 
         print "TEST"
-        report_poly_stats(y_pred_test, y_gold_test, breakdown=False)
-        plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
+        report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui)
+
+        if ui:
+            plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
 
 
 def unroll_sequences(foo):
