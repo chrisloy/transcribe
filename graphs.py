@@ -20,7 +20,7 @@ def deep_neural_network(input_tensor, layers, dropout=None):
 
     for i, nodes in enumerate(layers[1:]):
 
-        w = param_norm([layers[i-1], nodes], "W%d" % i)
+        w = param_norm([layers[i], nodes], "W%d" % i)
         b = param_norm([nodes], "b%d" % i)
 
         act = tf.matmul(trans, w) + b
@@ -43,34 +43,25 @@ def recurrent_neural_network(
 
     initial_state = rnn_initial_state(graph_type, hidden)
 
-    weights = {
-        'hidden': tf.Variable(tf.random_normal([input_size, hidden])),
-        'out': tf.Variable(tf.random_normal([hidden, output_size]))
-    }
-    biases = {
-        'hidden': tf.Variable(tf.random_normal([hidden])),
-        'out': tf.Variable(tf.random_normal([output_size]))
-    }
-
     w_h = param_norm([input_size, hidden], "w_h")
     b_o = param_norm([output_size], "b_o")
     w_o = param_norm([hidden, output_size], "w_o")
     b_h = param_norm([hidden], "b_h")
 
-    input_layer = input_tensor                                       # (batch, steps, input)
-    input_layer = tf.transpose(input_layer, [1, 0, 2])               # (steps, batch, input)
-    input_layer = tf.reshape(input_layer, [-1, input_size])          # (steps * batch, input)
-    input_layer = tf.matmul(input_layer, w_h) + b_h                  # (steps * batch, hidden)
-    input_layer = tf.split(0, steps, input_layer)                    # (steps, batch, hidden)
+    input_layer = input_tensor                                        # (batch, steps, input)
+    input_layer = tf.transpose(input_layer, [1, 0, 2])                # (steps, batch, input)
+    input_layer = tf.reshape(input_layer, [-1, input_size])           # (steps * batch, input)
+    input_layer = tf.matmul(input_layer, w_h) + b_h                   # (steps * batch, hidden)
+    input_layer = tf.split(0, steps, input_layer)                     # (steps, batch, hidden)
 
-    cell = rnn_cell(graph_type, hidden)                              # (steps, batch, hidden)
+    cell = rnn_cell(graph_type, hidden)                               # (steps, batch, hidden)
 
-    output_layer = rnn(graph_type, cell, initial_state, input_layer) # (steps, batch, hidden)
-    output_layer = tf.reshape(output_layer, [-1, hidden])            # (steps * batch, hidden)
-    output_layer = tf.matmul(output_layer, w_o) + b_o                # (steps * batch, output)
-    output_layer = tf.split(0, steps, output_layer)                  # (steps, batch, output)
+    output_layer = rnn(graph_type, cell, initial_state, input_layer)  # (steps, batch, hidden)
+    output_layer = tf.reshape(output_layer, [-1, hidden])             # (steps * batch, hidden)
+    output_layer = tf.matmul(output_layer, w_o) + b_o                 # (steps * batch, output)
+    output_layer = tf.split(0, steps, output_layer)                   # (steps, batch, output)
 
-    return tf.transpose(output_layer, [1, 0, 2]), initial_state                 # (batch, steps, output)
+    return tf.transpose(output_layer, [1, 0, 2]), initial_state       # (batch, steps, output)
 
 
 def rnn_initial_state(graph_type, hidden):

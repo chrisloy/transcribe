@@ -163,19 +163,21 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
 
         persist.save(sess, m, d, p)
 
-        y_pred_train = m.y.eval(feed_dict={m.x: d.x_train, m.i_state: d.init_train}, session=sess)
-        y_pred_test = m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess)
+        y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train, m.i_state: d.init_train}, session=sess))
+        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess))
+
+        d.without_sequences()
 
         print "TRAIN"
-        report_poly_stats(squash_sequences(y_pred_train), squash_sequences(d.y_train), breakdown=False)
+        report_poly_stats(y_pred_train, d.y_train, breakdown=False)
         plot_piano_roll(y_pred_train[:5000, :], d.y_train[:5000, :])
 
         print "TEST"
-        report_poly_stats(squash_sequences(y_pred_test), squash_sequences(d.y_test), breakdown=False)
+        report_poly_stats(y_pred_test, d.y_test, breakdown=False)
         plot_piano_roll(y_pred_test[:5000, :], d.y_test[:5000, :])
 
 
-def squash_sequences(foo):
+def unroll_sequences(foo):
     return np.reshape(foo, [-1, foo.shape[-1]])
 
 
@@ -516,6 +518,25 @@ def run_best_rnn(corpus):
         assert False
 
 if __name__ == "__main__":
+    run_sequence_model(
+        Params(
+            epochs=5,
+            train_size=4,
+            test_size=1,
+            hidden_nodes=[],
+            corpus="two_piano_one_octave",
+            learning_rate=0.002,
+            lower=60,
+            upper=72,
+            padding=0,
+            batch_size=1,
+            steps=50,
+            hidden=8,
+            graph_type="bi_rnn"
+        )
+    )
+
+
     # Scores to beat:
     # LSTM:                                     0.15517218
     # Frame: 0 hidden layers:                   0.15908915
@@ -523,7 +544,7 @@ if __name__ == "__main__":
     # Frame: 2 hidden layers:   DROPOUT: None   0.15111840   (0.923800 ROC AUC) marveled-pan's
     run_frame_model(
         Params(
-            epochs=100,
+            epochs=8,
             train_size=600,
             test_size=200,
             hidden_nodes=[176],
@@ -532,7 +553,8 @@ if __name__ == "__main__":
             lower=21,
             upper=109,
             padding=0,
-            batch_size=512
+            batch_size=512,
+            dropout=False
         ),
         report_epochs=1,
         pre_p=Params(

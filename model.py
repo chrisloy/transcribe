@@ -46,14 +46,40 @@ def rnn_model(
         steps,
         hidden,
         graph_type,
-        learning_rate):
+        learning_rate,
+        one_hot=False):
 
     tf.set_random_seed(1)
 
     x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
     logits, i_state = graphs.recurrent_neural_network(x, features, notes, steps, hidden, graph_type)
-    y, loss = y_and_loss(logits, y_gold, False)
+    y, loss = y_and_loss(logits, y_gold, one_hot)
+
+    return Model(x, y, y_gold, loss, train(loss, learning_rate), i_state)
+
+
+def hybrid_model(
+        features,
+        notes,
+        steps,
+        rnn_input,
+        rnn_width,
+        hidden_nodes,
+        rnn_type,
+        learning_rate,
+        dropout=None,
+        one_hot=False):
+
+    tf.set_random_seed(1)
+
+    x = tf.placeholder(tf.float32, shape=[None, features], name="x")
+    y_gold = tf.placeholder(tf.float32, shape=[None, notes], name="y_gold")
+
+    acoustic = graphs.deep_neural_network(x, [features] + hidden_nodes + [rnn_input], dropout)
+    sequence, i_state = graphs.recurrent_neural_network(acoustic, rnn_input, notes, steps, rnn_width, rnn_type)
+
+    y, loss = y_and_loss(sequence, y_gold, one_hot)
 
     return Model(x, y, y_gold, loss, train(loss, learning_rate), i_state)
 
