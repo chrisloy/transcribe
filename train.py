@@ -53,11 +53,11 @@ def train_model(epochs, m, d, report_epochs=10):
 
 
 def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
-    t1 = time.time()
-    j_last = 0
+    epoch_time = 0.0
+    j_last = -1
     for j in range(epochs + 1):
+        t1 = time.time()
         if j == epochs or j % report_epochs == 0:
-            t2 = time.time()
             sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
                              (
                                  j,
@@ -74,8 +74,10 @@ def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
                                      m.y_gold:  d.y_test,
                                      m.i_state: d.init_test
                                  }),
-                                 0.0 if j_last == 0 else (t2 - t1) / (j - j_last)
+                                 float(epoch_time) / float(j - j_last)
                              ))
+            j_last = j
+            epoch_time = 0.0
             sys.stdout.flush()
 
         if j < epochs:
@@ -91,6 +93,8 @@ def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
                     m.y_gold:  d.y_train[start:stop, :, :],
                     m.i_state: np.zeros([d.batch_size, i_state_shape])
                 })
+        t2 = time.time()
+        epoch_time += (t2 - t1)
 
 
 def load_data(p, from_cache):
