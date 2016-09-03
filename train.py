@@ -166,15 +166,16 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train, m.i_state: d.init_train}, session=sess))
         y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess))
 
-        d.without_sequences()
+        y_gold_train = unroll_sequences(d.y_train)
+        y_gold_test = unroll_sequences(d.y_test)
 
         print "TRAIN"
-        report_poly_stats(y_pred_train, d.y_train, breakdown=False)
-        plot_piano_roll(y_pred_train[:5000, :], d.y_train[:5000, :])
+        report_poly_stats(y_pred_train, y_gold_train, breakdown=False)
+        plot_piano_roll(y_pred_train[:1500, :], y_gold_train[:1500, :])
 
         print "TEST"
-        report_poly_stats(y_pred_test, d.y_test, breakdown=False)
-        plot_piano_roll(y_pred_test[:5000, :], d.y_test[:5000, :])
+        report_poly_stats(y_pred_test, y_gold_test, breakdown=False)
+        plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
 
 
 def unroll_sequences(foo):
@@ -520,19 +521,19 @@ def run_best_rnn(corpus):
 if __name__ == "__main__":
     run_sequence_model(
         Params(
-            epochs=5,
-            train_size=4,
-            test_size=1,
+            epochs=95,
+            train_size=600,
+            test_size=200,
             hidden_nodes=[],
-            corpus="two_piano_one_octave",
-            learning_rate=0.002,
-            lower=60,
-            upper=72,
+            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+            learning_rate=0.01,
+            lower=21,
+            upper=109,
             padding=0,
-            batch_size=1,
-            steps=50,
-            hidden=8,
-            graph_type="bi_rnn"
+            batch_size=16,
+            steps=500,
+            hidden=64,
+            graph_type="lstm"
         )
     )
 
@@ -542,61 +543,61 @@ if __name__ == "__main__":
     # Frame: 0 hidden layers:                   0.15908915
     # Frame: 1 hidden layer:    DROPOUT: 0.5    0.15406726   (0.919213 ROC AUC)
     # Frame: 2 hidden layers:   DROPOUT: None   0.15111840   (0.923800 ROC AUC) marveled-pan's
-    run_frame_model(
-        Params(
-            epochs=8,
-            train_size=600,
-            test_size=200,
-            hidden_nodes=[176],
-            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.01,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=512,
-            dropout=False
-        ),
-        report_epochs=1,
-        pre_p=Params(
-            epochs=1,
-            train_size=48,
-            test_size=2,
-            hidden_nodes=[176],
-            corpus="piano_notes_88_mono_velocity_95",
-            learning_rate=0.1,
-            lower=21,
-            upper=109,
-            padding=0
-        )
-    )
+    # run_frame_model(
+    #     Params(
+    #         epochs=8,
+    #         train_size=600,
+    #         test_size=200,
+    #         hidden_nodes=[176],
+    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+    #         learning_rate=0.01,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         batch_size=512,
+    #         dropout=False
+    #     ),
+    #     report_epochs=1,
+    #     pre_p=Params(
+    #         epochs=1,
+    #         train_size=48,
+    #         test_size=2,
+    #         hidden_nodes=[176],
+    #         corpus="piano_notes_88_mono_velocity_95",
+    #         learning_rate=0.1,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0
+    #     )
+    # )
 
     # Best 2-layer  (0.15111840 / 0.923800)  /  DROPOUT = OFF
-    run_frame_model(
-        Params(
-            epochs=220,
-            train_size=600,
-            test_size=200,
-            hidden_nodes=[176, 132],
-            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.007,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=4096,
-            dropout=False
-        ),
-        report_epochs=10,
-        pre_p=Params(
-            epochs=50,
-            train_size=48,
-            test_size=2,
-            hidden_nodes=[176, 132],
-            corpus="piano_notes_88_mono_velocity_95",
-            learning_rate=0.4,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=4096
-        ),
-        ui=False
-    )
+    # run_frame_model(
+    #     Params(
+    #         epochs=220,
+    #         train_size=600,
+    #         test_size=200,
+    #         hidden_nodes=[176, 132],
+    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+    #         learning_rate=0.007,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         batch_size=4096,
+    #         dropout=False
+    #     ),
+    #     report_epochs=10,
+    #     pre_p=Params(
+    #         epochs=50,
+    #         train_size=48,
+    #         test_size=2,
+    #         hidden_nodes=[176, 132],
+    #         corpus="piano_notes_88_mono_velocity_95",
+    #         learning_rate=0.4,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         batch_size=4096
+    #     ),
+    #     ui=False
+    # )
