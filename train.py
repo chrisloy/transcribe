@@ -16,9 +16,10 @@ from matplotlib import pyplot as plt
 from os import devnull
 
 
-def train_model(epochs, m, d, report_epochs=10):
+def train_frame_model(epochs, m, d, report_epochs=10):
     epoch_time = 0.0
     j_last = -1
+    print "Training frame model with [%d] batches of size [%d]" % (d.batches, d.batch_size)
     for j in range(epochs + 1):
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
@@ -55,6 +56,7 @@ def train_model(epochs, m, d, report_epochs=10):
 def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
     epoch_time = 0.0
     j_last = -1
+    print "Training sequence model with [%d] batches of size [%d]" % (d.batches, d.batch_size)
     for j in range(epochs + 1):
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
@@ -122,10 +124,10 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
                 pre_d = load_data(pre_p, from_cache).to_shuffled()
             pre_d.set_test(d.x_test, d.y_test)
             print "Pre-training with %s" % pre_p.corpus
-            train_model(pre_p.epochs, m, pre_d, report_epochs)
+            train_frame_model(pre_p.epochs, m, pre_d, report_epochs)
             print "Completed pre-training"
 
-        train_model(p.epochs, m, d, report_epochs)
+        train_frame_model(p.epochs, m, d, report_epochs)
 
         persist.save(sess, m, d, p)
 
@@ -268,7 +270,7 @@ def run_one_hot_joint_model(p, from_cache=True):
         m.set_report("ACCURACY", m.accuracy())
 
         sess.run(tf.initialize_all_variables())
-        train_model(p.epochs, m, d, report_epochs=5)
+        train_frame_model(p.epochs, m, d, report_epochs=5)
 
         persist.save(sess, m, d, p)
 
@@ -527,20 +529,34 @@ def run_best_rnn(corpus):
 if __name__ == "__main__":
     run_sequence_model(
         Params(
-            epochs=95,
-            train_size=60,
-            test_size=20,
+            epochs=100,
+            train_size=500,
+            test_size=150,
             hidden_nodes=[176],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.01,
+            learning_rate=0.001,
             lower=21,
             upper=109,
             padding=0,
-            batch_size=16,
+            batch_size=128,
             steps=500,
             hidden=32,
             graph_type="lstm"
-        )
+        ),
+        pre_p=Params(
+            epochs=100,
+            train_size=48,
+            test_size=2,
+            hidden_nodes=[176],
+            corpus="piano_notes_88_mono_velocity_95",
+            learning_rate=0.0003,
+            lower=21,
+            upper=109,
+            padding=0,
+            batch_size=128
+        ),
+        ui=False,
+        report_epochs=1
     )
 
     # Scores to beat:
