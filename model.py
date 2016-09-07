@@ -64,7 +64,6 @@ def hybrid_model(
         features,
         notes,
         steps,
-        rnn_input,
         rnn_width,
         hidden_nodes,
         rnn_type,
@@ -74,11 +73,20 @@ def hybrid_model(
 
     tf.set_random_seed(1)
 
-    x = tf.placeholder(tf.float32, shape=[None, features], name="x")
-    y_gold = tf.placeholder(tf.float32, shape=[None, notes], name="y_gold")
+    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
+    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
 
-    acoustic = partial(graphs.deep_neural_network, layers=[features] + hidden_nodes + [rnn_input], dropout=dropout)
-    sequence, i_state = graphs.recurrent_neural_network(x, rnn_input, notes, steps, rnn_width, rnn_type, acoustic)
+    acoustic = partial(graphs.deep_neural_network, layers=[features] + hidden_nodes + [rnn_width], dropout=dropout)
+
+    sequence, i_state = graphs.recurrent_neural_network(
+        x,
+        features,
+        notes,
+        steps,
+        rnn_width,
+        rnn_type,
+        input_model=acoustic
+    )
 
     y, loss = y_and_loss(sequence, y_gold, one_hot)
 
