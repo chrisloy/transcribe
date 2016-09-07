@@ -1,5 +1,6 @@
 import graphs
 import tensorflow as tf
+from functools import partial
 
 
 class Model:
@@ -76,8 +77,8 @@ def hybrid_model(
     x = tf.placeholder(tf.float32, shape=[None, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, notes], name="y_gold")
 
-    acoustic = graphs.deep_neural_network(x, [features] + hidden_nodes + [rnn_input], dropout)
-    sequence, i_state = graphs.recurrent_neural_network(acoustic, rnn_input, notes, steps, rnn_width, rnn_type)
+    acoustic = partial(graphs.deep_neural_network, layers=[features] + hidden_nodes + [rnn_input], dropout=dropout)
+    sequence, i_state = graphs.recurrent_neural_network(x, rnn_input, notes, steps, rnn_width, rnn_type, acoustic)
 
     y, loss = y_and_loss(sequence, y_gold, one_hot)
 
