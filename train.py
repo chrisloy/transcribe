@@ -146,7 +146,8 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         if not d:
             d = load_data(p, from_cache).to_sequences(p.steps)
 
-        m = model.rnn_model(d.features, p.outputs(), p.steps, p.hidden, p.graph_type, p.learning_rate)
+        # m = model.rnn_model(d.features, p.outputs(), p.steps, p.hidden, p.graph_type, p.learning_rate)
+        m = model.hybrid_model(d.features, p.outputs(), p.steps, p.hidden, p.hidden_nodes, p.graph_type, p.learning_rate)
 
         sess.run(tf.initialize_all_variables())
 
@@ -527,9 +528,9 @@ if __name__ == "__main__":
     run_sequence_model(
         Params(
             epochs=95,
-            train_size=600,
-            test_size=200,
-            hidden_nodes=[],
+            train_size=60,
+            test_size=20,
+            hidden_nodes=[176],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
             learning_rate=0.01,
             lower=21,
@@ -537,11 +538,10 @@ if __name__ == "__main__":
             padding=0,
             batch_size=16,
             steps=500,
-            hidden=64,
+            hidden=32,
             graph_type="lstm"
         )
     )
-
 
     # Scores to beat:
     # LSTM:                                     0.15517218
