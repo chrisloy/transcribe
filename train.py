@@ -184,7 +184,7 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
 
 
 def unroll_sequences(foo):
-    return np.reshape(foo, [-1, foo.shape[-1]])
+    return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
 
 
 def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True):
