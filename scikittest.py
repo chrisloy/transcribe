@@ -21,7 +21,7 @@ p = Params(
 
 d = data.load(
     p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-).to_padded(p.padding).to_shuffled().to_sparse()
+).to_padded(p.padding).shuffle_frames().to_sparse()
 
 
 notes = np.arange(60, 65)

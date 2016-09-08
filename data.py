@@ -88,10 +88,16 @@ class Data:
         else:
             return self
 
-    def to_shuffled(self):
+    def shuffle_frames(self):
         i = r.permutation(self.x_train.shape[0])
         self.x_train = self.x_train[i, :]
         self.y_train = self.y_train[i, :]
+        return self
+
+    def shuffle_sequences(self):
+        i = r.permutation(self.x_train.shape[0])
+        self.x_train = self.x_train[i, :, :]
+        self.y_train = self.y_train[i, :, :]
         return self
 
     def to_sparse(self, threshold=0.01):

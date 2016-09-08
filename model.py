@@ -64,8 +64,8 @@ def hybrid_model(
         features,
         notes,
         steps,
-        rnn_width,
-        hidden_nodes,
+        rnn_state_size,
+        acoustic_hidden_nodes,
         rnn_type,
         learning_rate,
         dropout=None,
@@ -76,14 +76,16 @@ def hybrid_model(
     x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
 
-    acoustic = partial(graphs.deep_neural_network, layers=[features] + hidden_nodes + [rnn_width], dropout=dropout)
+    layers = [features] + acoustic_hidden_nodes + [rnn_state_size]
+
+    acoustic = partial(graphs.deep_neural_network, layers=layers, dropout=dropout)
 
     sequence, i_state = graphs.recurrent_neural_network(
         x,
         features,
         notes,
         steps,
-        rnn_width,
+        rnn_state_size,
         rnn_type,
         input_model=acoustic
     )

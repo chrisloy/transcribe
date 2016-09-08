@@ -59,6 +59,7 @@ def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
     print "Training sequence model with [%d] batches of size [%d]" % (d.batches, d.batch_size)
     for j in range(epochs + 1):
         t1 = time.time()
+        d.shuffle_sequences()
         if j == epochs or j % report_epochs == 0:
             sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
                              (
@@ -107,7 +108,7 @@ def load_data(p, from_cache):
 
 def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None, ui=True):
     if not d:
-        d = load_data(p, from_cache).to_shuffled()
+        d = load_data(p, from_cache).shuffle_frames()
     with tf.Session() as sess:
         m = model.feed_forward_model(
             d.features,
@@ -121,7 +122,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
 
         if pre_p:
             if not pre_d:
-                pre_d = load_data(pre_p, from_cache).to_shuffled()
+                pre_d = load_data(pre_p, from_cache).shuffle_frames()
             pre_d.set_test(d.x_test, d.y_test)
             print "Pre-training with %s" % pre_p.corpus
             train_frame_model(pre_p.epochs, m, pre_d, report_epochs)
@@ -260,7 +261,7 @@ def run_one_hot_joint_model(p, from_cache=True):
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-        ).to_one_hot().to_padded(p.padding).to_shuffled()
+        ).to_one_hot().to_padded(p.padding).shuffle_frames()
         m = model.feed_forward_model(
                 d.features,
                 p.outputs() + 1,
@@ -529,34 +530,22 @@ def run_best_rnn(corpus):
 if __name__ == "__main__":
     run_sequence_model(
         Params(
-            epochs=100,
+            epochs=1000,
             train_size=500,
             test_size=150,
             hidden_nodes=[176],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.001,
+            learning_rate=0.0001,
             lower=21,
             upper=109,
             padding=0,
-            batch_size=128,
+            batch_size=64,
             steps=500,
-            hidden=32,
-            graph_type="lstm"
-        ),
-        pre_p=Params(
-            epochs=100,
-            train_size=48,
-            test_size=2,
-            hidden_nodes=[176],
-            corpus="piano_notes_88_mono_velocity_95",
-            learning_rate=0.0003,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=128
+            hidden=64,
+            graph_type="bi_gru"
         ),
         ui=False,
-        report_epochs=1
+        report_epochs=10
     )
 
     # Scores to beat:
