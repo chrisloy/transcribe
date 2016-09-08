@@ -150,8 +150,16 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         if not d:
             d = load_data(p, from_cache).to_sequences(p.steps)
 
-        # m = model.rnn_model(d.features, p.outputs(), p.steps, p.hidden, p.graph_type, p.learning_rate)
-        m = model.hybrid_model(d.features, p.outputs(), p.steps, p.hidden, p.hidden_nodes, p.graph_type, p.learning_rate)
+        m = model.hybrid_model(
+            d.features,
+            p.outputs(),
+            p.steps,
+            p.hidden,
+            p.hidden_nodes,
+            p.graph_type,
+            p.learning_rate,
+            dropout=p.dropout
+        )
 
         sess.run(tf.initialize_all_variables())
 
