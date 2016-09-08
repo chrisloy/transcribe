@@ -21,6 +21,7 @@ def train_frame_model(epochs, m, d, report_epochs=10):
     j_last = -1
     print "Training frame model with [%d] batches of size [%d]" % (d.batches, d.batch_size)
     for j in range(epochs + 1):
+        d.shuffle_frames()
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
             sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
@@ -108,7 +109,7 @@ def load_data(p, from_cache):
 
 def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None, ui=True):
     if not d:
-        d = load_data(p, from_cache).shuffle_frames()
+        d = load_data(p, from_cache)
     with tf.Session() as sess:
         m = model.feed_forward_model(
             d.features,
@@ -553,6 +554,8 @@ if __name__ == "__main__":
     # Frame: 0 hidden layers:                   0.15908915
     # Frame: 1 hidden layer:    DROPOUT: 0.5    0.15406726   (0.919213 ROC AUC)
     # Frame: 2 hidden layers:   DROPOUT: None   0.15111840   (0.923800 ROC AUC) marveled-pan's
+    # Hybrid: 1 hidden layers:  DROPOUT: None   0.15685987
+    #
     # run_frame_model(
     #     Params(
     #         epochs=8,
@@ -610,4 +613,25 @@ if __name__ == "__main__":
     #         batch_size=4096
     #     ),
     #     ui=False
+    # )
+
+    # Best Hybrid (1-layer into LSTM)    0.15685987
+    #     run_sequence_model(
+    #     Params(
+    #         epochs=41,
+    #         train_size=600,
+    #         test_size=200,
+    #         hidden_nodes=[176],
+    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+    #         learning_rate=0.01,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         batch_size=16,
+    #         steps=500,
+    #         hidden=64,
+    #         graph_type="lstm"
+    #     ),
+    #     ui=False,
+    #     report_epochs=1
     # )
