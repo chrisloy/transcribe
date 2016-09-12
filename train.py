@@ -17,12 +17,10 @@ from os import devnull
 
 
 def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None):
-
     if batch_override:
         batches, batch_size = batch_override
     else:
         batches, batch_size = d.batches, d.batch_size
-
     epoch_time = 0.0
     j_last = -1
     print "Training frame model with [%d] batches of size [%d]" % (batches, batch_size)
@@ -47,7 +45,7 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
 
         if j < epochs:
             for k in range(batches):
-                sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, epochs, k + 1, d.batches))
+                sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, epochs, k + 1, batches))
                 sys.stdout.flush()
 
                 start = k * batch_size
@@ -226,7 +224,7 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
         train_frame_model(ac_epochs, ac, d, report_epochs, batch_override=batch_override)
 
         print "***** Initial training on sequences"
-        train_frame_model(10, ac, d, report_epochs)
+        train_sequence_model(20, m, d, report_epochs, i_state_shape)
 
         print "***** Re-pre-training on frames only"
         train_frame_model(20, ac, d, report_epochs, batch_override=batch_override)
