@@ -27,6 +27,8 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
     for j in range(epochs + 1):
         if shuffle:
             d.shuffle_frames()
+        else:
+            d.shuffle_sequences()
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
             sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
