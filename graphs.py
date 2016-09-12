@@ -16,6 +16,7 @@ def deep_neural_network(input_tensor, layers, dropout=None):
 
     act = None
     trans = input_tensor
+    hs = []
 
     print "Graph shape: %s" % " --> ".join(map(str, layers))
 
@@ -31,11 +32,15 @@ def deep_neural_network(input_tensor, layers, dropout=None):
             if dropout:
                 trans = tf.nn.dropout(trans, dropout, seed=1)
 
-    return act
+        if i + 2 < len(layers):
+            hs.append(act)
+
+    return act, hs
 
 
 def logistic_regression(input_tensor, input_size, output_size):
-    return deep_neural_network(input_tensor, [input_size, output_size])
+    y, _ = deep_neural_network(input_tensor, [input_size, output_size])
+    return y
 
 
 def recurrent_neural_network(
