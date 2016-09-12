@@ -227,7 +227,7 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
         train_sequence_model(20, m, d, report_epochs, i_state_shape)
 
         print "***** Re-pre-training on frames only"
-        train_frame_model(20, ac, d, report_epochs, batch_override=batch_override)
+        train_frame_model(10, ac, d, report_epochs, batch_override=batch_override)
 
         print "***** Commencing full training"
         train_sequence_model(p.epochs, m, d, report_epochs, i_state_shape)
