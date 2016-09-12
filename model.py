@@ -4,7 +4,7 @@ from functools import partial
 
 
 class Model:
-    def __init__(self, x, y, y_gold, loss, train_step, i_state=None):
+    def __init__(self, x, y, y_gold, loss, train_step, i_state=None, pre_loss=None, pre_train=None):
         self.x = x
         self.y = y
         self.y_gold = y_gold
@@ -13,6 +13,8 @@ class Model:
         self.report_name = "ERROR"
         self.report_target = loss
         self.i_state = i_state
+        self.pre_loss = pre_loss
+        self.pre_train = pre_train
 
     def set_report(self, name, target):
         self.report_name = name
@@ -35,7 +37,7 @@ def feed_forward_model(
 
     x = tf.placeholder(tf.float32, shape=[None, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, output], name="y_gold")
-    act = graphs.deep_neural_network(x, [features] + hidden_nodes + [output], dropout)
+    act, _ = graphs.deep_neural_network(x, [features] + hidden_nodes + [output], dropout)
     y, loss = y_and_loss(act, y_gold, one_hot)
 
     return Model(x, y, y_gold, loss, train(loss, learning_rate))
@@ -67,32 +69,55 @@ def hybrid_model(
         rnn_state_size,
         acoustic_hidden_nodes,
         rnn_type,
-        learning_rate,
+        rnn_learning_rate,
+        acoustic_learning_rate,
         dropout=None,
         one_hot=False):
 
     tf.set_random_seed(1)
 
-    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
-    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
+    assert acoustic_hidden_nodes is not None
 
-    layers = [features] + acoustic_hidden_nodes + [rnn_state_size]
+    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x_sequence")
+    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_sequence_gold")
 
-    acoustic = partial(graphs.deep_neural_network, layers=layers, dropout=dropout)
+    x_acoustic = x                                                        # (batch, steps, features)
+    x_acoustic = tf.transpose(x_acoustic, [1, 0, 2])                      # (steps, batch, features)
+    x_acoustic = tf.reshape(x_acoustic, [-1, features])                   # (steps * batch, features)
 
+    y_acoustic_gold = y_gold                                              # (batch, steps, notes)
+    y_acoustic_gold = tf.transpose(y_acoustic_gold, [1, 0, 2])            # (steps, batch, notes)
+    y_acoustic_gold = tf.reshape(y_acoustic_gold, [-1, notes])            # (steps * batch, notes)
+
+    # Acoustic Model
+    layers = [features] + acoustic_hidden_nodes + [notes]
+
+    logits_acoustic, acoustic_hidden = graphs.deep_neural_network(x_acoustic, layers, dropout)
+    y_acoustic, loss_acoustic = y_and_loss(logits_acoustic, y_acoustic_gold, one_hot)
+
+    train_acoustic = train(loss_acoustic, acoustic_learning_rate)
+    acoustic = Model(x, y_acoustic, y_gold, loss_acoustic, train_acoustic)
+
+    def transfer_layer(not_used):
+        return graphs.logistic_regression(acoustic_hidden[-1], acoustic_hidden_nodes[-1], rnn_state_size)
+
+    # Sequence Model
     sequence, i_state = graphs.recurrent_neural_network(
         x,
-        features,
+        acoustic_hidden_nodes[-1],
         notes,
         steps,
         rnn_state_size,
         rnn_type,
-        input_model=acoustic
+        input_model=transfer_layer
     )
 
-    y, loss = y_and_loss(sequence, y_gold, one_hot)
+    y_sequence, loss_sequence = y_and_loss(sequence, y_gold, one_hot)
+    train_sequence = train(loss_sequence, rnn_learning_rate)
 
-    return Model(x, y, y_gold, loss, train(loss, learning_rate), i_state)
+    sequence = Model(x, y_sequence, y_gold, loss_sequence, train_sequence, i_state)
+
+    return acoustic, sequence
 
 
 def train(loss, learning_rate):
