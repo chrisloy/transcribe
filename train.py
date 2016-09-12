@@ -16,12 +16,13 @@ from matplotlib import pyplot as plt
 from os import devnull
 
 
-def train_frame_model(epochs, m, d, report_epochs=10):
+def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True):
     epoch_time = 0.0
     j_last = -1
     print "Training frame model with [%d] batches of size [%d]" % (d.batches, d.batch_size)
     for j in range(epochs + 1):
-        d.shuffle_frames()
+        if shuffle:
+            d.shuffle_frames()
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
             sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
@@ -133,16 +134,10 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
 
         persist.save(sess, m, d, p)
 
-        print "TRAIN"
         y_pred_train = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
-        report_poly_stats(y_pred_train, d.y_train, breakdown=False, ui=ui)
-
-        print "TEST"
         y_pred_test = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
-        report_poly_stats(y_pred_test, d.y_test, breakdown=False, ui=ui)
 
-        if ui:
-            plot_piano_roll(y_pred_test[:1500, 30:85], d.y_test[:1500, 30:85])
+        report_run_results(y_pred_train, d.y_train, y_pred_test, d.y_test, ui)
 
 
 def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
@@ -150,15 +145,13 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         if not d:
             d = load_data(p, from_cache).to_sequences(p.steps)
 
-        m = model.hybrid_model(
+        m = model.rnn_model(
             d.features,
             p.outputs(),
             p.steps,
             p.hidden,
-            p.hidden_nodes,
             p.graph_type,
-            p.learning_rate,
-            dropout=p.dropout
+            p.learning_rate
         )
 
         sess.run(tf.initialize_all_variables())
@@ -186,18 +179,71 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         y_gold_train = unroll_sequences(d.y_train)
         y_gold_test = unroll_sequences(d.y_test)
 
-        print "TRAIN"
-        report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui)
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
 
-        print "TEST"
-        report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui)
 
-        if ui:
-            plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
+def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
+    with tf.Session() as sess:
+        if not d:
+            d = load_data(p, from_cache).to_sequences(p.steps)
+
+        ac, m = model.hybrid_model(
+            d.features,
+            p.outputs(),
+            p.steps,
+            p.hidden,
+            p.hidden_nodes,
+            p.graph_type,
+            p.learning_rate,
+            ac_rate,
+            dropout=p.dropout
+        )
+
+        sess.run(tf.initialize_all_variables())
+
+        i_state_shape = p.hidden * 2 if p.graph_type == 'lstm' else p.hidden
+
+        d.set_init(i_state_shape)
+
+        if pre_p:
+            if not pre_d:
+                pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
+            pre_d.set_test(d.x_test, d.y_test)
+            pre_d.set_init(i_state_shape)
+            print "Pre-training with %s" % pre_p.corpus
+            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs, i_state_shape)
+            print "Completed pre-training"
+
+        print "Pre training on frames only"
+        train_frame_model(ac_epochs, ac, d, report_epochs)
+
+        print "Commencing full training"
+        train_sequence_model(p.epochs, m, d, report_epochs, i_state_shape)
+
+        persist.save(sess, m, d, p)
+
+        y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train, m.i_state: d.init_train}, session=sess))
+        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess))
+
+        y_gold_train = unroll_sequences(d.y_train)
+        y_gold_test = unroll_sequences(d.y_test)
+
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
 
 
 def unroll_sequences(foo):
     return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
+
+
+def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui):
+    print "TRAIN"
+    report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui)
+
+    print "TEST"
+    report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui)
+
+    if ui:
+        plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
 
 
 def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True):
@@ -537,25 +583,6 @@ def run_best_rnn(corpus):
         assert False
 
 if __name__ == "__main__":
-    run_sequence_model(
-        Params(
-            epochs=1000,
-            train_size=500,
-            test_size=150,
-            hidden_nodes=[176],
-            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.0001,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=64,
-            steps=500,
-            hidden=64,
-            graph_type="bi_gru"
-        ),
-        ui=False,
-        report_epochs=10
-    )
 
     # Scores to beat:
     # LSTM:                                     0.15517218
@@ -563,7 +590,58 @@ if __name__ == "__main__":
     # Frame: 1 hidden layer:    DROPOUT: 0.5    0.15406726   (0.919213 ROC AUC)
     # Frame: 2 hidden layers:   DROPOUT: None   0.15111840   (0.923800 ROC AUC) marveled-pan's
     # Hybrid: 1 hidden layers:  DROPOUT: None   0.15685987
-    #
+
+    run_hybrid_model(
+        Params(
+            epochs=200,
+            train_size=600,
+            test_size=200,
+            hidden_nodes=[176, 134],
+            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+            learning_rate=0.001,
+            lower=21,
+            upper=109,
+            padding=0,
+            batch_size=16,
+            steps=500,
+            hidden=64,
+            graph_type='lstm'
+        ),
+        report_epochs=1,
+        ac_rate=0.007,
+        ac_epochs=220
+    )
+
+    # run_frame_model(
+    #     Params(
+    #         epochs=220,
+    #         train_size=600,
+    #         test_size=200,
+    #         hidden_nodes=[176, 132],
+    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+    #         learning_rate=0.007,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         batch_size=4096,
+    #         dropout=False
+    #     ),
+    #     report_epochs=10,
+    #     pre_p=Params(
+    #         epochs=50,
+    #         train_size=48,
+    #         test_size=2,
+    #         hidden_nodes=[176, 132],
+    #         corpus="piano_notes_88_mono_velocity_95",
+    #         learning_rate=0.4,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         batch_size=4096
+    #     ),
+    #     ui=False
+    # )
+
     # run_frame_model(
     #     Params(
     #         epochs=8,
