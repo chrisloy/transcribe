@@ -47,7 +47,7 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
 
         if j < epochs:
             for k in range(batches):
-                sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, epochs, k + 1, batches))
+                sys.stdout.write("EPOCH %03d/%d - BATCH %04d/%d\r" % (j + 1, epochs, k + 1, batches))
                 sys.stdout.flush()
 
                 start = k * batch_size
@@ -190,11 +190,9 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
 
 def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
     with tf.Session() as sess:
-        if not d:
-            d = load_data(p, from_cache).to_sequences(p.steps)
 
         ac, m = model.hybrid_model(
-            d.features,
+            660,
             p.outputs(),
             p.steps,
             p.hidden,
@@ -209,18 +207,25 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
 
         i_state_shape = p.hidden * 2 if p.graph_type == 'lstm' else p.hidden
 
-        d.set_init(i_state_shape)
-
         if pre_p:
             if not pre_d:
                 pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
-            pre_d.set_test(d.x_test, d.y_test)
+            # pre_d.set_test(d.x_test, d.y_test)
             pre_d.set_init(i_state_shape)
             print "Pre-training with %s" % pre_p.corpus
+            train_frame_model(pre_p.epochs, ac, pre_d, report_epochs)
+            train_sequence_model(10, m, pre_d, report_epochs, i_state_shape)
+            train_frame_model(10, ac, pre_d, report_epochs)
             train_sequence_model(pre_p.epochs, m, pre_d, report_epochs, i_state_shape)
             print "Completed pre-training"
 
-        batch_override = (d.batches * d.batch_size / 2, 2)
+        if not d:
+            d = load_data(p, from_cache).to_sequences(p.steps)
+
+        d.set_init(i_state_shape)
+
+        # batch_override = (d.batches * d.batch_size / 2, 2)
+        batch_override = None
 
         print "***** Pre-training on frames only"
         train_frame_model(ac_epochs, ac, d, report_epochs, shuffle=False, batch_override=batch_override)
@@ -422,180 +427,6 @@ def produce_prediction(slice_samples, x, y):
     generate.write_wav_file("output/sanity_pred.mid", "output/sanity_pred_deep.wav", open(devnull, 'w'))
 
 
-def run_best_time_slice(corpus):
-    # TODO just search graphs for this
-    if corpus == "two_piano_one_octave":
-        # 0.14709036
-        run_frame_model(
-            Params(
-                epochs=10,
-                train_size=40,
-                test_size=10,
-                hidden_nodes=[],
-                corpus="two_piano_one_octave",
-                learning_rate=0.5,
-                lower=60,
-                upper=72,
-                padding=0
-            )
-        )
-    elif corpus == "mono_piano_one_octave":
-        run_one_hot_joint_model(
-            Params(
-                epochs=100,
-                train_size=40,
-                test_size=10,
-                hidden_nodes=[],
-                corpus="mono_piano_one_octave",
-                learning_rate=0.05,
-                lower=60,
-                upper=72,
-                padding=0
-            )
-        )
-    elif corpus == "mono_piano_two_octaves":
-        run_one_hot_joint_model(
-            Params(
-                epochs=100,
-                train_size=40,
-                test_size=10,
-                hidden_nodes=[],
-                corpus="mono_piano_two_octaves",
-                learning_rate=0.05,
-                lower=48,
-                upper=72,
-                padding=0
-            )
-        )
-    elif corpus == "five_piano_magic":
-        # 0.09098092
-        run_frame_model(
-            Params(
-                epochs=4,
-                train_size=400,
-                test_size=100,
-                hidden_nodes=[],
-                corpus="five_piano_magic",
-                learning_rate=0.1,
-                lower=21,
-                upper=109,
-                padding=0
-            )
-        )
-    elif corpus == "piano_notes_88_poly_3_to_15_velocity_63_to_127":
-        # 0.15406726  /  0.919213 ROC AUC
-        run_frame_model(
-            Params(
-                epochs=200,
-                train_size=600,
-                test_size=200,
-                hidden_nodes=[176],
-                corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-                learning_rate=0.005,
-                lower=21,
-                upper=109,
-                padding=0,
-                batch_size=4096
-            ),
-            report_epochs=20,
-            pre_p=Params(
-                epochs=200,
-                train_size=48,
-                test_size=2,
-                hidden_nodes=[176],
-                corpus="piano_notes_88_mono_velocity_95",
-                learning_rate=0.03,
-                lower=21,
-                upper=109,
-                padding=0,
-                batch_size=4096
-            ),
-            ui=False
-        )
-    else:
-        assert False
-
-
-def run_best_rnn(corpus):
-    # 0.17156129
-    if corpus == "two_piano_one_octave":
-        run_sequence_model(
-            Params(
-                epochs=50,
-                train_size=4,
-                test_size=1,
-                hidden_nodes=[],
-                corpus="two_piano_one_octave",
-                learning_rate=0.002,
-                lower=60,
-                upper=72,
-                padding=0,
-                batch_size=1,
-                steps=50,
-                hidden=8,
-                graph_type="bi_rnn"
-            )
-        )
-    elif corpus == "five_piano_two_middle_octaves":
-        # 0.17442912
-        run_sequence_model(
-            Params(
-                epochs=11,
-                train_size=150,
-                test_size=50,
-                hidden_nodes=[],
-                corpus="five_piano_two_middle_octaves",
-                learning_rate=0.01,
-                lower=48,
-                upper=72,
-                padding=0,
-                batch_size=16,
-                steps=200,
-                hidden=64,
-                graph_type="lstm"
-            )
-        )
-    elif corpus == "five_piano_magic":
-        # 0.10388491
-        run_sequence_model(
-            Params(
-                epochs=20,
-                train_size=400,
-                test_size=100,
-                hidden_nodes=[],
-                corpus="five_piano_magic",
-                learning_rate=0.01,
-                lower=21,
-                upper=109,
-                padding=0,
-                batch_size=16,
-                steps=200,
-                hidden=64,
-                graph_type="lstm"
-            )
-        )
-    elif corpus == "":
-        # 0.15517218
-        run_sequence_model(
-            Params(
-                epochs=95,
-                train_size=600,
-                test_size=200,
-                hidden_nodes=[],
-                corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-                learning_rate=0.01,
-                lower=21,
-                upper=109,
-                padding=0,
-                batch_size=16,
-                steps=500,
-                hidden=64,
-                graph_type="lstm"
-            )
-        )
-    else:
-        assert False
-
 if __name__ == "__main__":
 
     # Scores to beat:
@@ -617,18 +448,32 @@ if __name__ == "__main__":
             upper=109,
             padding=0,
             batch_size=16,
-            steps=500,
+            steps=256,
             hidden=64,
             graph_type='lstm'
         ),
-        report_epochs=1,
+        pre_p=Params(
+            epochs=50,
+            train_size=48,
+            test_size=2,
+            hidden_nodes=[176, 132],
+            corpus="piano_notes_88_mono_velocity_95",
+            learning_rate=0.4,
+            lower=21,
+            upper=109,
+            padding=0,
+            steps=256,
+            batch_size=16
+        ),
+        report_epochs=10,
         ac_rate=0.007,
         ac_epochs=220
     )
 
+    # Best 2-layer  (0.14959867 / 0.924106)  /  DROPOUT = OFF
     # run_frame_model(
     #     Params(
-    #         epochs=220,
+    #         epochs=200,
     #         train_size=600,
     #         test_size=200,
     #         hidden_nodes=[176, 132],
@@ -654,84 +499,4 @@ if __name__ == "__main__":
     #         batch_size=4096
     #     ),
     #     ui=False
-    # )
-
-    # run_frame_model(
-    #     Params(
-    #         epochs=8,
-    #         train_size=600,
-    #         test_size=200,
-    #         hidden_nodes=[176],
-    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-    #         learning_rate=0.01,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         batch_size=512,
-    #         dropout=False
-    #     ),
-    #     report_epochs=1,
-    #     pre_p=Params(
-    #         epochs=1,
-    #         train_size=48,
-    #         test_size=2,
-    #         hidden_nodes=[176],
-    #         corpus="piano_notes_88_mono_velocity_95",
-    #         learning_rate=0.1,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0
-    #     )
-    # )
-
-    # Best 2-layer  (0.15111840 / 0.923800)  /  DROPOUT = OFF
-    # run_frame_model(
-    #     Params(
-    #         epochs=220,
-    #         train_size=600,
-    #         test_size=200,
-    #         hidden_nodes=[176, 132],
-    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-    #         learning_rate=0.007,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         batch_size=4096,
-    #         dropout=False
-    #     ),
-    #     report_epochs=10,
-    #     pre_p=Params(
-    #         epochs=50,
-    #         train_size=48,
-    #         test_size=2,
-    #         hidden_nodes=[176, 132],
-    #         corpus="piano_notes_88_mono_velocity_95",
-    #         learning_rate=0.4,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         batch_size=4096
-    #     ),
-    #     ui=False
-    # )
-
-    # Best Hybrid (1-layer into LSTM)    0.15685987
-    #     run_sequence_model(
-    #     Params(
-    #         epochs=41,
-    #         train_size=600,
-    #         test_size=200,
-    #         hidden_nodes=[176],
-    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-    #         learning_rate=0.01,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         batch_size=16,
-    #         steps=500,
-    #         hidden=64,
-    #         graph_type="lstm"
-    #     ),
-    #     ui=False,
-    #     report_epochs=1
     # )
