@@ -28,8 +28,6 @@ class Data:
         self.n_train = x_train.shape[0]
         self.n_test = x_test.shape[0]
         self.notes = self.y_train.shape[1]
-        self.init_train = None
-        self.init_test = None
 
     def set_test(self, x_test, y_test):
         assert self.features == x_test.shape[-1]
@@ -53,10 +51,6 @@ class Data:
     def to_note(self, n):
         return Data(self.x_train, self.y_train[:, n, :], self.x_test, self.y_test[:, n, :], self.batches,
                     self.batch_size)
-
-    def set_init(self, i_state_shape):
-        self.init_train = np.zeros([self.n_train, i_state_shape])
-        self.init_test = np.zeros([self.n_test, i_state_shape])
 
     def to_padded(self, n):
 

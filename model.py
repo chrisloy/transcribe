@@ -56,10 +56,10 @@ def rnn_model(
 
     x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
-    logits, i_state = graphs.recurrent_neural_network(x, features, notes, steps, hidden, graph_type)
+    logits = graphs.recurrent_neural_network(x, features, notes, steps, hidden, graph_type)
     y, loss = y_and_loss(logits, y_gold, one_hot)
 
-    return Model(x, y, y_gold, loss, train(loss, learning_rate), i_state)
+    return Model(x, y, y_gold, loss, train(loss, learning_rate))
 
 
 def hybrid_model(
@@ -102,7 +102,7 @@ def hybrid_model(
         return graphs.logistic_regression(acoustic_hidden[-1], acoustic_hidden_nodes[-1], rnn_state_size)
 
     # Sequence Model
-    sequence, i_state = graphs.recurrent_neural_network(
+    sequence = graphs.recurrent_neural_network(
         x,
         acoustic_hidden_nodes[-1],
         notes,
@@ -115,7 +115,7 @@ def hybrid_model(
     y_sequence, loss_sequence = y_and_loss(sequence, y_gold, one_hot)
     train_sequence = train(loss_sequence, rnn_learning_rate)
 
-    sequence = Model(x, y_sequence, y_gold, loss_sequence, train_sequence, i_state)
+    sequence = Model(x, y_sequence, y_gold, loss_sequence, train_sequence)
 
     return acoustic, sequence
 

@@ -56,10 +56,10 @@ def recurrent_neural_network(
     if input_model is None:
         input_model = partial(logistic_regression, input_size=input_size, output_size=state_size)
 
-    if output_model is None:
-        output_model = partial(logistic_regression, input_size=state_size, output_size=output_size)
+    rnn_out = 2 * state_size if graph_type.startswith('bi_') else state_size
 
-    initial_state = rnn_initial_state(graph_type, state_size)
+    if output_model is None:
+        output_model = partial(logistic_regression, input_size=rnn_out, output_size=output_size)
 
     input_layer = input_tensor                                        # (batch, steps, input)
     input_layer = tf.transpose(input_layer, [1, 0, 2])                # (steps, batch, input)
@@ -69,35 +69,26 @@ def recurrent_neural_network(
 
     cell = rnn_cell(graph_type, state_size)                           # (steps, batch, state)
 
-    output_layer = rnn(graph_type, cell, initial_state, input_layer)  # (steps, batch, state)
-    output_layer = tf.reshape(output_layer, [-1, state_size])         # (steps * batch, hidden)
+    output_layer = rnn(graph_type, cell, input_layer)                 # (steps * 2, batch, state)
+    output_layer = tf.reshape(output_layer, [-1, rnn_out])            # (steps * batch, hidden * 2)
     output_layer = output_model(output_layer)                         # (steps * batch, output)
     output_layer = tf.split(0, steps, output_layer)                   # (steps, batch, output)
 
-    return tf.transpose(output_layer, [1, 0, 2]), initial_state       # (batch, steps, output)
-
-
-def rnn_initial_state(graph_type, hidden):
-    if graph_type == 'lstm' or graph_type == 'bi_lstm':
-        return tf.placeholder(tf.float32, shape=[None, hidden * 2], name="initial_state")
-    else:
-        return tf.placeholder(tf.float32, shape=[None, hidden], name="initial_state")
+    return tf.transpose(output_layer, [1, 0, 2])                      # (batch, steps, output)
 
 
 def rnn_cell(graph_type, size):
-    if graph_type == 'lstm' or graph_type == 'bi_lstm':
+    if graph_type.endswith('lstm'):
         return tf.nn.rnn_cell.BasicLSTMCell(size, forget_bias=1.0)
-    elif graph_type == 'gru' or 'bi_gru':
+    elif graph_type.endswith('gru'):
         return tf.nn.rnn_cell.GRUCell(size)
     else:
         return tf.nn.rnn_cell.BasicRNNCell(size)
 
 
-def rnn(graph_type, cell, initial_state, x):
-    if graph_type == 'bi_rnn' or graph_type == 'bi_lstm' or graph_type == 'bi_gru':
-        outputs, _, _ = tf.nn.bidirectional_rnn(cell, cell, x, initial_state, initial_state)
-        fw, bw = tf.split(2, 2, outputs)
-        output = fw
+def rnn(graph_type, cell, x):
+    if graph_type.startswith('bi_'):
+        output, _, _ = tf.nn.bidirectional_rnn(cell, cell, x, dtype=tf.float32)
     else:
-        output, _ = tf.nn.rnn(cell, x, initial_state)
+        output, _ = tf.nn.rnn(cell, x, dtype=tf.float32)
     return output

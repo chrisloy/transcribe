@@ -76,14 +76,12 @@ def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
                                  m.report_name,
                                  m.report_target.eval(feed_dict={
                                      m.x:       d.x_train,
-                                     m.y_gold:  d.y_train,
-                                     m.i_state: d.init_train
+                                     m.y_gold:  d.y_train
                                  }),
                                  m.report_name,
                                  m.report_target.eval(feed_dict={
                                      m.x:       d.x_test,
-                                     m.y_gold:  d.y_test,
-                                     m.i_state: d.init_test
+                                     m.y_gold:  d.y_test
                                  }),
                                  float(epoch_time) / float(j - j_last)
                              ))
@@ -101,8 +99,7 @@ def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
 
                 m.train_step.run(feed_dict={
                     m.x:       d.x_train[start:stop, :, :],
-                    m.y_gold:  d.y_train[start:stop, :, :],
-                    m.i_state: np.zeros([d.batch_size, i_state_shape])
+                    m.y_gold:  d.y_train[start:stop, :, :]
                 })
         t2 = time.time()
         epoch_time += (t2 - t1)
@@ -211,7 +208,6 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
             if not pre_d:
                 pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
             # pre_d.set_test(d.x_test, d.y_test)
-            pre_d.set_init(i_state_shape)
             print "Pre-training with %s" % pre_p.corpus
             train_frame_model(pre_p.epochs, ac, pre_d, report_epochs)
             train_sequence_model(10, m, pre_d, report_epochs, i_state_shape)
@@ -222,9 +218,6 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
         if not d:
             d = load_data(p, from_cache).to_sequences(p.steps)
 
-        d.set_init(i_state_shape)
-
-        # batch_override = (d.batches * d.batch_size / 2, 2)
         batch_override = None
 
         print "***** Pre-training on frames only"
