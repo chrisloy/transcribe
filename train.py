@@ -16,10 +16,16 @@ from matplotlib import pyplot as plt
 from os import devnull
 
 
-def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True):
+def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None):
+
+    if batch_override:
+        batches, batch_size = batch_override
+    else:
+        batches, batch_size = d.batches, d.batch_size
+
     epoch_time = 0.0
     j_last = -1
-    print "Training frame model with [%d] batches of size [%d]" % (d.batches, d.batch_size)
+    print "Training frame model with [%d] batches of size [%d]" % (batches, batch_size)
     for j in range(epochs + 1):
         if shuffle:
             d.shuffle_frames()
@@ -40,12 +46,12 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True):
             sys.stdout.flush()
 
         if j < epochs:
-            for k in range(d.batches):
+            for k in range(batches):
                 sys.stdout.write("EPOCH %03d/%d - BATCH %03d/%d\r" % (j + 1, epochs, k + 1, d.batches))
                 sys.stdout.flush()
 
-                start = k * d.batch_size
-                stop = (k + 1) * d.batch_size
+                start = k * batch_size
+                stop = (k + 1) * batch_size
 
                 m.train_step.run(feed_dict={
                     m.x:      d.x_train[start:stop, :],
@@ -214,10 +220,18 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
             train_sequence_model(pre_p.epochs, m, pre_d, report_epochs, i_state_shape)
             print "Completed pre-training"
 
-        print "Pre training on frames only"
-        train_frame_model(ac_epochs, ac, d, report_epochs)
+        batch_override = (d.batches * d.batch_size / 2, 2)
 
-        print "Commencing full training"
+        print "***** Pre-training on frames only"
+        train_frame_model(ac_epochs, ac, d, report_epochs, batch_override=batch_override)
+
+        print "***** Initial training on sequences"
+        train_frame_model(10, ac, d, report_epochs)
+
+        print "***** Re-pre-training on frames only"
+        train_frame_model(20, ac, d, report_epochs, batch_override=batch_override)
+
+        print "***** Commencing full training"
         train_sequence_model(p.epochs, m, d, report_epochs, i_state_shape)
 
         persist.save(sess, m, d, p)
