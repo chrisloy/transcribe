@@ -72,7 +72,8 @@ def hybrid_model(
         rnn_learning_rate,
         acoustic_learning_rate,
         dropout=None,
-        one_hot=False):
+        one_hot=False,
+        freeze_frame_model=True):
 
     tf.set_random_seed(1)
 
@@ -90,16 +91,22 @@ def hybrid_model(
     y_acoustic_gold = tf.reshape(y_acoustic_gold, [-1, notes])            # (steps * batch, notes)
 
     # Acoustic Model
-    layers = [features] + acoustic_hidden_nodes + [notes]
+    layers = [features] + acoustic_hidden_nodes
 
-    logits_acoustic, acoustic_hidden = graphs.deep_neural_network(x_acoustic, layers, dropout)
+    logits_acoustic_fixed, _ = graphs.deep_neural_network(x_acoustic, layers, dropout)
+    logits_acoustic = graphs.logistic_regression(logits_acoustic_fixed, acoustic_hidden_nodes[-1], notes)
     y_acoustic, loss_acoustic = y_and_loss(logits_acoustic, y_acoustic_gold, one_hot)
+
+    if freeze_frame_model:
+        frozen_acoustic = tf.stop_gradient(logits_acoustic_fixed)
+    else:
+        frozen_acoustic = logits_acoustic_fixed
 
     train_acoustic = train(loss_acoustic, acoustic_learning_rate)
     acoustic = Model(x, y_acoustic, y_gold, loss_acoustic, train_acoustic)
 
     def transfer_layer(not_used):
-        return graphs.logistic_regression(acoustic_hidden[-1], acoustic_hidden_nodes[-1], rnn_state_size)
+        return graphs.logistic_regression(frozen_acoustic, acoustic_hidden_nodes[-1], rnn_state_size)
 
     # Sequence Model
     sequence = graphs.recurrent_neural_network(
