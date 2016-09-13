@@ -61,7 +61,7 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
         epoch_time += (t2 - t1)
 
 
-def train_sequence_model(epochs, m, d, report_epochs, i_state_shape):
+def train_sequence_model(epochs, m, d, report_epochs):
     epoch_time = 0.0
     j_last = -1
     print "Training sequence model with [%d] batches of size [%d]" % (d.batches, d.batch_size)
@@ -159,20 +159,15 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
 
         sess.run(tf.initialize_all_variables())
 
-        i_state_shape = p.hidden * 2 if p.graph_type == 'lstm' else p.hidden
-
-        d.set_init(i_state_shape)
-
         if pre_p:
             if not pre_d:
                 pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
             pre_d.set_test(d.x_test, d.y_test)
-            pre_d.set_init(i_state_shape)
             print "Pre-training with %s" % pre_p.corpus
-            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs, i_state_shape)
+            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs)
             print "Completed pre-training"
 
-        train_sequence_model(p.epochs, m, d, report_epochs, i_state_shape)
+        train_sequence_model(p.epochs, m, d, report_epochs)
 
         persist.save(sess, m, d, p)
 
@@ -202,17 +197,15 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
 
         sess.run(tf.initialize_all_variables())
 
-        i_state_shape = p.hidden * 2 if p.graph_type == 'lstm' else p.hidden
-
         if pre_p:
             if not pre_d:
                 pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
             # pre_d.set_test(d.x_test, d.y_test)
             print "Pre-training with %s" % pre_p.corpus
             train_frame_model(pre_p.epochs, ac, pre_d, report_epochs)
-            train_sequence_model(10, m, pre_d, report_epochs, i_state_shape)
+            train_sequence_model(10, m, pre_d, report_epochs)
             train_frame_model(10, ac, pre_d, report_epochs)
-            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs, i_state_shape)
+            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs)
             print "Completed pre-training"
 
         if not d:
@@ -224,13 +217,13 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
         train_frame_model(ac_epochs, ac, d, report_epochs, shuffle=False, batch_override=batch_override)
 
         print "***** Initial training on sequences"
-        train_sequence_model(20, m, d, report_epochs, i_state_shape)
+        train_sequence_model(20, m, d, report_epochs)
 
         print "***** Re-pre-training on frames only"
         train_frame_model(10, ac, d, report_epochs, shuffle=False, batch_override=batch_override)
 
         print "***** Commencing full training"
-        train_sequence_model(p.epochs, m, d, report_epochs, i_state_shape)
+        train_sequence_model(p.epochs, m, d, report_epochs)
 
         persist.save(sess, m, d, p)
 
@@ -403,7 +396,7 @@ def counts(nums):
 
 
 def produce_prediction(slice_samples, x, y):
-    ex, _ = data.load_x("output/sanity.wav", slice_samples)
+    ex, _ = data.load_x("output/sanity.wav", slice_samples, coarse=False)
     ex = np.transpose(ex)
 
     output = np.transpose(y.eval(feed_dict={x: ex}))
