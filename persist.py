@@ -11,12 +11,8 @@ def save(sess, m, d, p):
     print "Saving variables..."
     saver = tf.train.Saver()
     saver.save(sess, "graphs/%s-variables.ckpt" % graph_id)
-    if d.init_train is not None:
-        feed_train = {m.x: d.x_train, m.y_gold: d.y_train, m.i_state: d.init_train}
-        feed_test = {m.x: d.x_test, m.y_gold: d.y_test, m.i_state: d.init_test}
-    else:
-        feed_train = {m.x: d.x_train, m.y_gold: d.y_train}
-        feed_test = {m.x: d.x_test, m.y_gold: d.y_test}
+    feed_train = {m.x: d.x_train, m.y_gold: d.y_train}
+    feed_test = {m.x: d.x_test, m.y_gold: d.y_test}
     results = {
         "train_err": float(m.report_target.eval(feed_dict=feed_train)),
         "test_err": float(m.report_target.eval(feed_dict=feed_test))
