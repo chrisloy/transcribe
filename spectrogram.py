@@ -21,7 +21,10 @@ def load(file_name):
 
 def load_mono(file_name):
     rate, stereo = wavfile.read(file_name)
-    return np.add(stereo[:, 0], stereo[:, 1]) / 2, rate
+    if len(list(np.shape(stereo))) == 1:
+        return stereo, rate
+    else:
+        return np.add(stereo[:, 0], stereo[:, 1]) / 2, rate
 
 
 def load_slice(file_name, slices):
@@ -46,7 +49,6 @@ def spectrogram_10hz(file_name, slice_samples):
     for i in range(slices):
         signal_slice = signal[i*slice_samples:(i+1)*slice_samples]
         f = np.fft.rfft(signal_slice)
-        print f.shape
         result[i, :] = np.abs(f)
     fs = np.arange(features) * 20
     ts = np.arange(slices) * (float(slice_samples) / rate)
