@@ -151,6 +151,12 @@ def load_pair(i, engine, corpus, lower, upper, coarse):
     return xi, yi
 
 
+def load_named_pair(wav_file, midi_file, engine, lower, upper):
+    xi, s = load_x(wav_file, engine, coarse=False)
+    yi = load_y(midi_file, s, lower, upper)
+    return np.transpose(xi), np.transpose(yi)
+
+
 def load_pair_from_cache(i, corpus, lower, upper, coarse):
     xi, s = load_cached_x("%s/%04d_features.p" % (corpus, i), coarse)
     yi = load_y("%s/%04d.mid" % (corpus, i), s, lower, upper)

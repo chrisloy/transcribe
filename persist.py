@@ -28,12 +28,11 @@ def load(sess, graph_id):
         dx = json.load(infile)
         params = dx["params"]
     p = domain.from_dict(params)
-    d = data.load(p.train_size, p.test_size, p.slice_samples, True, p.batch_size, p.corpus).to_one_hot()
     m = model.feed_forward_model(
-        d.features,
-        p.outputs,
+        660,
+        p.outputs(),
         hidden_nodes=p.hidden_nodes,
-        learning_rate=0.02)
+        learning_rate=p.learning_rate)
     saver = tf.train.Saver()
     saver.restore(sess, "graphs/%s-variables.ckpt" % graph_id)
-    return m, d, p
+    return m, p
