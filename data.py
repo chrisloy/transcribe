@@ -33,6 +33,7 @@ class Data:
         self.x_train = self.x_train[0::factor, :]
         self.y_train = self.y_train[0::factor, :]
         self.n_train = self.x_train.shape[0]
+        self.batches = self.n_train / self.batch_size
 
     def set_test(self, x_test, y_test):
         assert self.features == x_test.shape[-1]
