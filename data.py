@@ -29,6 +29,11 @@ class Data:
         self.n_test = x_test.shape[0]
         self.notes = self.y_train.shape[1]
 
+    def subsample_frames(self, factor):
+        self.x_train = self.x_train[0::factor, :]
+        self.y_train = self.y_train[0::factor, :]
+        self.n_train = self.x_train.shape[0]
+
     def set_test(self, x_test, y_test):
         assert self.features == x_test.shape[-1]
         assert self.notes == y_test.shape[-1]
