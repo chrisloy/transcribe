@@ -428,7 +428,9 @@ def ladder_model(
     with tf.control_dependencies([train_step]):
         train_step = tf.group(bn_updates)
 
-    return Model(x, y, y_gold, loss, train_step, training=training)
+    m = Model(x, y, y_gold, loss, train_step, training=training)
+    m.set_report("ERROR (LOSS)", cost)
+    return m
 
 
 def g_gauss(z_c, u, size):
