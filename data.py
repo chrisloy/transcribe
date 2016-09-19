@@ -28,12 +28,21 @@ class Data:
         self.n_train = x_train.shape[0]
         self.n_test = x_test.shape[0]
         self.notes = self.y_train.shape[1]
+        self.original_x_train = None
+        self.original_y_train = None
 
     def subsample_frames(self, factor):
-        self.x_train = self.x_train[0::factor, :]
-        self.y_train = self.y_train[0::factor, :]
+        if not self.original_x_train:
+            self.original_x_train = self.x_train
+            self.original_y_train = self.y_train
+        start = r.randint(factor)
+        self.x_train = self.original_x_train[start::factor, :]
+        self.y_train = self.original_y_train[start::factor, :]
         self.n_train = self.x_train.shape[0]
         self.batches = self.n_train / self.batch_size
+
+    def remove_subsampling(self):
+        self.subsample_frames(1)
 
     def set_test(self, x_test, y_test):
         assert self.features == x_test.shape[-1]
