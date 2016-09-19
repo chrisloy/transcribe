@@ -3,7 +3,7 @@
 class Params:
     def __init__(self, epochs, train_size, test_size, corpus, lower, upper, padding, hidden_nodes=list(),
                  slice_samples=512, batch_size=1000, graph_type="mlp", learning_rate=0.001, steps=None, hidden=None,
-                 dropout=False):
+                 dropout=False, subsample=None):
         self.epochs = epochs
         self.train_size = train_size
         self.test_size = test_size
@@ -19,6 +19,7 @@ class Params:
         self.steps = steps
         self.hidden = hidden
         self.dropout = dropout
+        self.subsample = subsample
 
     def to_dict(self):
         return {
@@ -36,7 +37,8 @@ class Params:
             "learning_rate": self.learning_rate,
             "steps": self.steps,
             "hidden": self.hidden,
-            "dropout": self.dropout
+            "dropout": self.dropout,
+            "subsample": self.subsample
         }
 
     def outputs(self):
@@ -59,5 +61,6 @@ def from_dict(dx):
         dx["learning_rate"],
         dx["steps"],
         dx["hidden"],
-        dx["dropout"]
+        dx["dropout"],
+        dx["subsample"]
     )
