@@ -36,9 +36,9 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
                                  j,
                                  epochs,
                                  m.report_name,
-                                 m.report_target.eval(feed_dict={m.x: d.x_train, m.y_gold: d.y_train}),
+                                 m.report_target.eval(feed_dict=m.train_labelled_feed(d)),
                                  m.report_name,
-                                 m.report_target.eval(feed_dict={m.x: d.x_test, m.y_gold: d.y_test}),
+                                 m.report_target.eval(feed_dict=m.test_labelled_feed(d)),
                                  float(epoch_time) / float(j - j_last)
                              ))
             j_last = j
@@ -53,10 +53,8 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
                 start = k * batch_size
                 stop = (k + 1) * batch_size
 
-                m.train_step.run(feed_dict={
-                    m.x:      d.x_train[start:stop, :],
-                    m.y_gold: d.y_train[start:stop, :]
-                })
+                m.train_step.run(feed_dict=m.train_batch_feed(d, start, stop))
+
         t2 = time.time()
         epoch_time += (t2 - t1)
 
@@ -115,9 +113,11 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
     if not d:
         d = load_data(p, from_cache)
     with tf.Session() as sess:
-        m = model.feed_forward_model(
+        m = model.frame_model(
+            p.graph_type,
             d.features,
             p.outputs(),
+            p.batch_size,
             hidden_nodes=p.hidden_nodes,
             learning_rate=p.learning_rate,
             dropout=p.dropout
@@ -137,8 +137,8 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
 
         persist.save(sess, m, d, p)
 
-        y_pred_train = m.y.eval(feed_dict={m.x: d.x_train}, session=sess)
-        y_pred_test = m.y.eval(feed_dict={m.x: d.x_test}, session=sess)
+        y_pred_train = m.y.eval(feed_dict=m.train_unlabelled_feed(d), session=sess)
+        y_pred_test = m.y.eval(feed_dict=m.test_unlabelled_feed(d), session=sess)
 
         report_run_results(y_pred_train, d.y_train, y_pred_test, d.y_test, ui)
 
@@ -417,39 +417,57 @@ if __name__ == "__main__":
     # Frame: 2 hidden layers:   DROPOUT: None   0.15111840   (0.923800 ROC AUC) marveled-pan's
     # Hybrid: 1 hidden layers:  DROPOUT: None   0.15685987
 
-    run_hybrid_model(
+    run_frame_model(
         Params(
-            epochs=200,
-            train_size=600,
-            test_size=200,
-            hidden_nodes=[176, 134],
-            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.001,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=16,
-            steps=256,
-            hidden=64,
-            graph_type='lstm'
-        ),
-        pre_p=Params(
-            epochs=50,
-            train_size=48,
-            test_size=2,
+            epochs=10,
+            train_size=50,
+            test_size=15,
             hidden_nodes=[176, 132],
-            corpus="piano_notes_88_mono_velocity_95",
-            learning_rate=0.4,
+            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+            learning_rate=0.0001,
             lower=21,
             upper=109,
             padding=0,
-            steps=256,
-            batch_size=16
+            batch_size=512,
+            dropout=False,
+            graph_type='ladder'
         ),
-        report_epochs=10,
-        ac_rate=0.007,
-        ac_epochs=220
+        report_epochs=1
     )
+
+    # run_hybrid_model(
+    #     Params(
+    #         epochs=200,
+    #         train_size=600,
+    #         test_size=200,
+    #         hidden_nodes=[176, 134],
+    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
+    #         learning_rate=0.001,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         batch_size=16,
+    #         steps=256,
+    #         hidden=64,
+    #         graph_type='lstm'
+    #     ),
+    #     pre_p=Params(
+    #         epochs=50,
+    #         train_size=48,
+    #         test_size=2,
+    #         hidden_nodes=[176, 132],
+    #         corpus="piano_notes_88_mono_velocity_95",
+    #         learning_rate=0.4,
+    #         lower=21,
+    #         upper=109,
+    #         padding=0,
+    #         steps=256,
+    #         batch_size=16
+    #     ),
+    #     report_epochs=10,
+    #     ac_rate=0.007,
+    #     ac_epochs=220
+    # )
 
     # Best 2-layer  (0.14959867 / 0.924106)  /  DROPOUT = OFF
     # run_frame_model(
