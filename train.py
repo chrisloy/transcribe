@@ -31,16 +31,14 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
             d.shuffle_sequences()
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
-            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f (%0.8f) - TEST %s: %0.8f (%0.8f) - TIME: %0.4fs\n" %
+            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
                              (
                                  j,
                                  epochs,
                                  m.report_name,
                                  m.report_target.eval(feed_dict=m.train_labelled_feed(d)),
-                                 m.loss.eval(feed_dict=m.train_labelled_feed(d)),
                                  m.report_name,
                                  m.report_target.eval(feed_dict=m.test_labelled_feed(d)),
-                                 m.loss.eval(feed_dict=m.test_labelled_feed(d)),
                                  float(epoch_time) / float(j - j_last)
                              ))
             j_last = j

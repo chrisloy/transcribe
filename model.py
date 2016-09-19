@@ -413,13 +413,12 @@ def ladder_model(
     # calculate total unsupervised cost by adding the denoising cost of all layers
     u_cost = tf.add_n(d_cost)
 
-    # y_n = labeled(y_c)
+    y_n = labeled(y_c)
 
-    # cost = -tf.reduce_mean(tf.reduce_sum(y * tf.log(y_N), 1))  # supervised cost
+    # s_cost = -tf.reduce_mean(tf.reduce_sum(y_gold * tf.log(y_n), 1))  # supervised cost
+    s_cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(y_n, y_gold))
 
-    cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(y_c, y_gold))
-
-    loss = cost + u_cost  # total cost
+    loss = s_cost + u_cost  # total cost
 
     train_step = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
@@ -429,7 +428,8 @@ def ladder_model(
         train_step = tf.group(bn_updates)
 
     m = Model(x, y, y_gold, loss, train_step, training=training)
-    m.set_report("ERROR (LOSS)", cost)
+    cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(y, y_gold))
+    m.set_report("ERROR", cost)
     return m
 
 
