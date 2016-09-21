@@ -47,9 +47,6 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
             epoch_time = 0.0
             sys.stdout.flush()
 
-        if subsample:
-            d.subsample_frames(subsample)
-
         if j < epochs:
             for k in range(batches):
                 sys.stdout.write("EPOCH %03d/%d - BATCH %04d/%d\r" % (j + 1, epochs, k + 1, batches))
@@ -118,6 +115,9 @@ def load_data(p, from_cache):
 def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None, ui=True):
     if not d:
         d = load_data(p, from_cache)
+        if p.subsample:
+            d.subsample_frames(p.subsample)
+
     with tf.Session() as sess:
         m = model.frame_model(
             p.graph_type,
