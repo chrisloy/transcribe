@@ -374,7 +374,8 @@ def ladder_model(
 
             if l == ls:
                 # use softmax activation in output layer
-                h = tf.nn.softmax(weights['gamma'][l - 1] * (z + weights["beta"][l - 1]))
+                # h = tf.nn.softmax(weights['gamma'][l - 1] * (z + weights["beta"][l - 1]))
+                h = weights['gamma'][l - 1] * (z + weights["beta"][l - 1])
             else:
                 # use ReLU activation in hidden layers
                 h = tf.nn.relu(z + weights["beta"][l - 1])
