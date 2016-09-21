@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from os import devnull
 
 
-def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None, subsample=None):
+def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None):
     if batch_override:
         batches, batch_size = batch_override
     else:
@@ -31,8 +31,6 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
             d.shuffle_sequences()
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
-            if subsample:
-                d.remove_subsampling()
             sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
                              (
                                  j,
@@ -139,7 +137,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
             train_frame_model(pre_p.epochs, m, pre_d, report_epochs)
             print "Completed pre-training"
 
-        train_frame_model(p.epochs, m, d, report_epochs, subsample=p.subsample)
+        train_frame_model(p.epochs, m, d, report_epochs)
 
         persist.save(sess, m, d, p)
 
