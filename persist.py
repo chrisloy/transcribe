@@ -1,4 +1,4 @@
-import data
+from collections import defaultdict
 import domain
 import json
 import model
@@ -25,7 +25,7 @@ def load(sess, graph_id):
     with open('graphs/%s-meta.json' % graph_id, 'r') as infile:
         dx = json.load(infile)
         params = dx["params"]
-    p = domain.from_dict(params)
+    p = domain.from_dict(defaultdict(lambda: None, params))
     m = None
     if p.graph_type == 'mlp':
         m = model.feed_forward_model(

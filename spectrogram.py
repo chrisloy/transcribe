@@ -27,12 +27,6 @@ def load_mono(file_name):
         return np.add(stereo[:, 0], stereo[:, 1]) / 2, rate
 
 
-def load_slice(file_name, slices):
-    mono, rate = load_mono(file_name)
-    nps = int(584344.0 / slices) + 32
-    return sig.spectrogram(mono, fs=rate, nperseg=nps)
-
-
 def plot(d, t, f):
     plt.pcolormesh(t, f, d)
     plt.ylabel('Frequency [Hz]')

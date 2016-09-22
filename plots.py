@@ -91,9 +91,9 @@ def compare_to_real():
 
     with tf.Session() as sess:
         model, params = persist.load(sess, 'fendering-uniovular')
-        ambient, midi = ev.predict(model, params, ambient_file, midi_file, sess)
-        close, _ = ev.predict(model, params, close_file, midi_file, sess)
-        fake, _ = ev.predict(model, params, gen_file, midi_file, sess)
+        ambient, midi, _ = ev.predict(model, params, ambient_file, midi_file, sess)
+        close, _, _ = ev.predict(model, params, close_file, midi_file, sess)
+        fake, _, _ = ev.predict(model, params, gen_file, midi_file, sess)
 
     # plt.subplot(3, 2, 1).axis('off')
     # plt.pcolormesh(np.transpose(midi), cmap='hot', rasterized=True)
