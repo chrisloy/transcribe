@@ -121,7 +121,7 @@ def random_pattern(polyphony, velocity, notes, rest_probability=0.1):
 
 
 def write_wav_file(mid_file_name, wav_file_name, out_file):
-    call(["/usr/local/bin/timidity", mid_file_name, "-Ow", "-o", wav_file_name], stdout=out_file, stderr=out_file)
+    call(["/usr/local/bin/timidity", mid_file_name, "-Ow", "-o", wav_file_name, "-s", "16k"], stdout=out_file, stderr=out_file)
 
 
 def generate_pair(num, out_file, corpus, polyphony, velocity, notes=PIANO_NOTES):
@@ -133,14 +133,14 @@ def generate_pair(num, out_file, corpus, polyphony, velocity, notes=PIANO_NOTES)
 
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
-    number = 50
-    cn = "piano_notes_88_mono_velocity_95"
+    number = 800
+    cn = "16k_piano_notes_88_poly_3_to_15_velocity_63_to_127"
     c = "corpus/%s" % cn
     if not os.path.exists(c):
         os.makedirs(c)
         print "Created directory %s" % c
-    p = fixed_polyphony(1)
-    v = fixed_velocity(95)
+    p = random_polyphony(3, 15)
+    v = random_velocity(63, 127)
     for n in range(0, number):
         generate_pair(n, of, c, p, v, notes=PIANO_NOTES)
         print "Completed %d of %d in [%s]" % (n + 1, number, c)
