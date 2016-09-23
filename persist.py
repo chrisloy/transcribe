@@ -21,7 +21,7 @@ def save(sess, m, d, p):
     return graph_id
 
 
-def load(sess, graph_id):
+def load(sess, graph_id, features=660):
     with open('graphs/%s-meta.json' % graph_id, 'r') as infile:
         dx = json.load(infile)
         params = dx["params"]
@@ -29,10 +29,17 @@ def load(sess, graph_id):
     m = None
     if p.graph_type == 'mlp':
         m = model.feed_forward_model(
-            660,
+            features,
             p.outputs(),
             hidden_nodes=p.hidden_nodes,
             learning_rate=p.learning_rate)
+    elif p.graph_type == 'ladder':
+        m = model.ladder_model(
+            features,
+            p.outputs(),
+            p.batch_size,
+            hidden_nodes=p.hidden_nodes
+        )
     else:
         assert 2 + 2 == 5, "Unsupported graph type %s" % p.graph_type
     saver = tf.train.Saver()
