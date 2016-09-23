@@ -388,7 +388,7 @@ def ladder_model(
     y_c, corr = encoder(x, noise_std)
 
     print "=== Clean Encoder ==="
-    y, clean = encoder(x, 0.0)  # 0.0 -> do not add noise
+    y_logits, clean = encoder(x, 0.0)  # 0.0 -> do not add noise
 
     print "=== Decoder ==="
 
@@ -428,8 +428,8 @@ def ladder_model(
     with tf.control_dependencies([train_step]):
         train_step = tf.group(bn_updates)
 
+    y, cost = y_and_loss(y_logits, y_gold, one_hot=False)
     m = Model(x, y, y_gold, loss, train_step, training=training)
-    cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(y, y_gold))
     m.set_report("ERROR", cost)
     return m
 
