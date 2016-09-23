@@ -49,10 +49,10 @@ def spectrogram_10hz(file_name, slice_samples):
     return fs, ts, np.transpose(result[:, :slice_samples] / np.max(result))
 
 
-def cqt_engine(slice_samples, bins_per_octave):
+def cqt_engine(slice_samples, bins_per_octave, octaves=11, min_freq=8.1757):
     fp = yf.FeaturePlan()
-    fp.addFeature("cqt: CQT CQTAlign=c  CQTBinsPerOctave=%d  CQTMinFreq=8.1757  CQTNbOctaves=11  stepSize=%d"
-                  % (bins_per_octave, slice_samples))
+    fp.addFeature("cqt: CQT CQTAlign=c  CQTBinsPerOctave=%d  CQTMinFreq=%0.4f  CQTNbOctaves=%d  stepSize=%d"
+                  % (bins_per_octave, min_freq, octaves, slice_samples))
 
     engine = yf.Engine()
     engine.load(fp.getDataFlow())
