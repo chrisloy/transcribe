@@ -127,7 +127,9 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
             dropout=p.dropout
         )
 
-        sess.run(tf.initialize_all_variables())
+        # TODO: why??
+        sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
+        sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
 
         if pre_p:
             if not pre_d:
@@ -428,7 +430,7 @@ if __name__ == "__main__":
             test_size=15,
             hidden_nodes=[176, 132],
             corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.0001,
+            learning_rate=0.01,
             lower=21,
             upper=109,
             padding=0,

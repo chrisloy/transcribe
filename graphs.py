@@ -1,7 +1,8 @@
 import math
 import tensorflow as tf
 from functools import partial
-from tensorflow.contrib.layers.python.layers import batch_norm
+from tensorflow.python import control_flow_ops
+from tensorflow.python.framework.ops import op_scope
 
 
 def param_norm(shape, name):
@@ -12,8 +13,8 @@ def param_zeros(shape, name):
     return tf.Variable(tf.zeros(shape), dtype="float32", name=name)
 
 
-def param(shape, name, init):
-    return tf.Variable(tf.ones(shape) * init, dtype="float32", name=name)
+def param(shape, init, name=None, trainable=True):
+    return tf.Variable(tf.ones(shape) * init, dtype="float32", name=name, trainable=trainable)
 
 
 def deep_neural_network(input_tensor, layers, dropout=None):
@@ -121,9 +122,33 @@ def rnn(graph_type, cell, x):
     return output
 
 
-def ladder_network(x, layers, noise, denoising_cost=[math.pow(10, 2-k) for k in range(20)]):
+def ladder_network(x, layers, noise, training, denoising_cost=[math.pow(10, 2-k) for k in range(20)]):
 
-    # TODO: Implement batch normalisation by hand
+    eps = 1e-3
+
+    def batch_norm(z, batch_mean, batch_var, gamma, beta, include_noise):
+        with op_scope([z, batch_mean, batch_var, gamma, beta], None, "batchnorm"):
+            z_out = (z - batch_mean) / tf.sqrt(batch_var + eps)
+            if include_noise:
+                z_out = add_noise(z_out, noise)
+            z_fixed = tf.mul(gamma, z_out) + beta
+            return z_fixed, z_out
+
+    def batch_norm_and_noise(z, is_training, include_noise, decay=0.99999):
+
+        gamma = param([z.get_shape()[-1]], 1)
+        beta = param([z.get_shape()[-1]], 0)
+        pop_mean = param([z.get_shape()[-1]], 0, trainable=False)
+        pop_var = param([z.get_shape()[-1]], 1, trainable=False)
+
+        if is_training:
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            train_mean = tf.assign(pop_mean, tf.mul(pop_mean, decay) + batch_mean * (1 - decay))
+            train_var = tf.assign(pop_var, tf.mul(pop_var, decay) + batch_var * (1 - decay))
+            with tf.control_dependencies([train_mean, train_var]):
+                return batch_norm(z, batch_mean, batch_var, gamma, beta, include_noise)
+        else:
+            return batch_norm(z, pop_mean, pop_var, gamma, beta, include_noise)
 
     h_clean = x
     h_corr = x
@@ -137,20 +162,31 @@ def ladder_network(x, layers, noise, denoising_cost=[math.pow(10, 2-k) for k in 
     for i, nodes in enumerate(layers[1:]):
 
         w = param_norm([layers[i], nodes], "W%d" % i)
-        b = param_norm([nodes], "b%d" % i)
+        z_clean = tf.matmul(h_clean, w)
+        z_corr = tf.matmul(h_corr, w)
 
-        z_clean = batch_norm(tf.matmul(h_clean, w) + b)
-        z_corr = add_noise(batch_norm(tf.matmul(h_corr, w) + b), noise)
+        h_clean, z_clean = control_flow_ops.cond(
+            training,
+            lambda: batch_norm_and_noise(z_clean, True, False),
+            lambda: batch_norm_and_noise(z_clean, False, False)
+        )
+
+        h_corr, z_corr = control_flow_ops.cond(
+            training,
+            lambda: batch_norm_and_noise(z_corr, True, True),
+            lambda: batch_norm_and_noise(z_corr, False, True)
+        )
 
         z_cleans.append(z_clean)
         z_corrs.append(z_corr)
 
-        h_clean = tf.nn.relu(z_clean)
-        h_corr = tf.nn.relu(z_corr)
+        if i + 2 < len(layers):
+            h_clean = tf.nn.relu(h_clean)
+            h_corr = tf.nn.relu(h_corr)
 
-    z_est = h_corr
+    z_dec = h_corr
     reverse_layers = layers[::-1]
-    d_cost = []
+    dec_cost = []
 
     # Decoder
     for j, nodes in enumerate(reverse_layers):
@@ -159,24 +195,25 @@ def ladder_network(x, layers, noise, denoising_cost=[math.pow(10, 2-k) for k in 
 
         if j != 0:
             v = param_norm([layers[i+1], nodes], "V%d" % i)
-            c = param_norm([nodes], "c%d" % i)
-            z_est = tf.matmul(z_est, v) + c
+            z_dec = tf.matmul(z_dec, v)
 
-        z_est = batch_norm(z_est)
+        _, z_dec = control_flow_ops.cond(
+            training,
+            lambda: batch_norm_and_noise(z_dec, True, False),
+            lambda: batch_norm_and_noise(z_dec, False, False)
+        )
+
         z_corr = z_corrs[i]
         z_clean = z_cleans[i]
 
-        z_est = combinator(z_est, z_corr, nodes)
+        z_dec = combinator(z_dec, z_corr, nodes)
 
-        # z_est_bn = (z_est - mean) / var TODO ???
-        z_est_bn = z_est
-
-        d_cost.append(
-            (tf.reduce_mean(tf.reduce_sum(tf.square(z_est_bn - z_clean), 1)) / nodes) * denoising_cost[i])
+        cost = tf.reduce_mean(tf.reduce_sum(tf.square(z_dec - z_clean), 1)) / nodes
+        dec_cost.append((cost * denoising_cost[i]))
 
     y_clean = h_clean
     y_corr = h_corr
-    u_cost = tf.add_n(d_cost)
+    u_cost = tf.add_n(dec_cost)
 
     return y_clean, y_corr, u_cost
 
@@ -187,16 +224,16 @@ def add_noise(x, noise_var):
 
 def combinator(z_est, z_corr, size):
 
-    a1 = param([size], 'a1', 0.)
-    a2 = param([size], 'a2', 1.)
-    a3 = param([size], 'a3', 0.)
-    a4 = param([size], 'a4', 0.)
-    a5 = param([size], 'a5', 0.)
-    a6 = param([size], 'a6', 0.)
-    a7 = param([size], 'a7', 1.)
-    a8 = param([size], 'a8', 0.)
-    a9 = param([size], 'a9', 0.)
-    a10 = param([size], 'a10', 0.)
+    a1 = param([size], 0., name='a1')
+    a2 = param([size], 1., name='a2')
+    a3 = param([size], 0., name='a3')
+    a4 = param([size], 0., name='a4')
+    a5 = param([size], 0., name='a5')
+    a6 = param([size], 0., name='a6')
+    a7 = param([size], 1., name='a7')
+    a8 = param([size], 0., name='a8')
+    a9 = param([size], 0., name='a9')
+    a10 = param([size], 0., name='a10')
 
     mu = tf.mul(a1, tf.sigmoid(tf.mul(a2, z_corr) + a3)) + tf.mul(a4, z_corr) + a5
     va = tf.mul(a6, tf.sigmoid(tf.mul(a7, z_corr) + a8)) + tf.mul(a9, z_corr) + a10

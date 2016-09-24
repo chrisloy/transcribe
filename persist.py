@@ -37,7 +37,7 @@ def load(sess, graph_id, features=660):
         m = model.ladder_model(
             features,
             p.outputs(),
-            p.batch_size,
+            p.learning_rate,
             hidden_nodes=p.hidden_nodes
         )
     else:
