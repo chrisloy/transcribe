@@ -1,7 +1,7 @@
 
 
 class Params:
-    def __init__(self, epochs, train_size, test_size, corpus, lower, upper, padding, hidden_nodes=list(),
+    def __init__(self, epochs, train_size, test_size, corpus, lower=21, upper=109, padding=0, hidden_nodes=list(),
                  slice_samples=512, batch_size=1000, graph_type="mlp", learning_rate=0.001, steps=None, hidden=None,
                  dropout=False, subsample=None):
         self.epochs = epochs
