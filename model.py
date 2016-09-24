@@ -225,7 +225,7 @@ def train(loss, learning_rate):
     return tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
 
-def y_and_loss(logits, y_gold, one_hot):
+def y_and_loss(logits, y_gold, one_hot=False):
     if one_hot:
         loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits, y_gold))
         y = tf.nn.softmax(logits, name="y")
@@ -248,6 +248,25 @@ def frame_model(
         return feed_forward_model(features, output, learning_rate, hidden_nodes, dropout, one_hot)
     elif graph_type == 'ladder':
         return ladder_model(features, output, batch_size, learning_rate, hidden_nodes)
+    elif graph_type == 'my_ladder':
+        return my_ladder_model(features, output, learning_rate, hidden_nodes)
+
+
+def my_ladder_model(
+        features,
+        output,
+        learning_rate,
+        hidden_nodes):
+    tf.set_random_seed(1)
+    x = tf.placeholder(tf.float32, shape=[None, features], name="x")
+    y_gold = tf.placeholder(tf.float32, shape=[None, output], name="y_gold")
+    layers = [features] + hidden_nodes + [output]
+    y_clean, y_corr, u_cost = graphs.ladder_network(x, layers, noise=0.3)
+    y, s_cost = y_and_loss(y_clean, y_gold)
+    loss = s_cost + u_cost
+    m = Model(x, y, y_gold, loss, train(loss, learning_rate))
+    m.set_report("ERROR", s_cost)
+    return m
 
 
 def ladder_model(
