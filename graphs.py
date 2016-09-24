@@ -122,7 +122,7 @@ def rnn(graph_type, cell, x):
     return output
 
 
-def ladder_network(x, layers, noise, training, denoising_cost=[math.pow(10, 2-k) for k in range(20)]):
+def ladder_network(x, layers, noise, training, denoising_cost):
 
     eps = 1e-3
 
