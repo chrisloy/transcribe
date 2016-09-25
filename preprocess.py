@@ -1,5 +1,6 @@
 import cPickle
 import os
+import re
 import sys
 
 
@@ -18,7 +19,17 @@ def refresh(target):
         return cPickle.load(fp)
 
 
+def cache_maps(mapsdir):
+    import spectrogram, evaluate
+    eng = spectrogram.cqt_engine(512, 60)
+    print "Caching %s" % mapsdir
+    for j, (wav, _) in enumerate(evaluate.maps_files(mapsdir)):
+        cache_features(wav, re.sub('\.wav$', '_features.p', wav), eng)
+        print "DONE: %d/270" % (j+1)
+
+
 if __name__ == "__main__":
+    # cache_maps('MAPS_16k')
     corpus_name = sys.argv[1]
     num = int(sys.argv[2]) if len(sys.argv) > 2 else 60
     print "Pre-processing corpus [%s] with [%d] features per octave" % (corpus_name, num)
