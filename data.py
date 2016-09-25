@@ -38,7 +38,7 @@ class Data:
         print "New batches [%d], New n_train [%d]" % (self.batches, self.n_train)
 
     def set_test(self, x_test, y_test):
-        assert self.features == x_test.shape[-1]
+        assert self.features == x_test.shape[-1], "%f, %f" % (self.features, x_test.shape[-1])
         assert self.notes == y_test.shape[-1]
         self.x_test = x_test
         self.y_test = y_test
@@ -161,6 +161,12 @@ def load_pair(i, engine, corpus, lower, upper, coarse):
 
 def load_named_pair(wav_file, midi_file, engine, lower, upper):
     xi, s = load_x(wav_file, engine, coarse=False)
+    yi = load_y(midi_file, s, lower, upper)
+    return np.transpose(xi), np.transpose(yi)
+
+
+def load_named_pair_from_cache(features_file, midi_file, lower, upper):
+    xi, s = load_cached_x(features_file, coarse=False)
     yi = load_y(midi_file, s, lower, upper)
     return np.transpose(xi), np.transpose(yi)
 

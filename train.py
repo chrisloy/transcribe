@@ -129,9 +129,12 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
             dropout=p.dropout
         )
 
-        # TODO: why??
-        sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
-        sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
+        if p.graph_type == 'ladder':
+            # TODO: why??
+            sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
+            sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
+        else:
+            sess.run(tf.initialize_all_variables())
 
         if pre_p:
             if not pre_d:

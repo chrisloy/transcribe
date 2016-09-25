@@ -8,27 +8,10 @@ def length_of_track(track):
     return sum(map(lambda x: x.tick, track))
 
 
-def slice_midi(data, slice_size):
-    track = data[0]  # TODO multiple tracks?
-    raw = track_to_boolean_table(track)
-    length = length_of_track(track)
-    padding = (slice_size - (length % slice_size)) % slice_size
-    num = (length + padding) / slice_size
-    raw = np.append(raw, np.zeros((PITCHES, padding)), axis=1)
-    slices = np.split(raw, num, axis=1)
-    result = np.zeros((PITCHES, num))
-    for i in range(0, num):
-        result[:, i] = np.max(slices[i], axis=1)
-    return result
-
-
 def slice_midi_into(data, num_slices):
-    track = data[0]  # TODO multiple tracks?
+    track = data[0]
     raw = track_to_boolean_table(track)
-    l = length_of_track(track)
-    padding = ((l / num_slices) + 1) * num_slices - l
-    raw = np.append(raw, np.zeros((PITCHES, padding)), axis=1)
-    slices = np.split(raw, num_slices, axis=1)
+    slices = np.array_split(raw, num_slices, axis=1)
     result = np.zeros((PITCHES, num_slices))
     for i in range(0, num_slices):
         result[:, i] = np.max(slices[i], axis=1)
@@ -99,17 +82,6 @@ if __name__ == "__main__":
     expected[8, 6] = 1
     # test
     actual = track_to_boolean_table(t)
-    assert np.equal(actual, expected).all()
-
-    print "TEST: slice_midi"
-    # input
-    p = midi.Pattern([t])
-    # expected
-    expected = np.zeros((PITCHES, 3))
-    expected[5, 0] = 1
-    expected[8, 1] = 1
-    # test
-    actual = slice_midi(p, 4)
     assert np.equal(actual, expected).all()
 
     print "TEST: boolean_table_to_track"
