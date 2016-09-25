@@ -63,16 +63,24 @@ def feed_forward_model(
         learning_rate=0.001,
         hidden_nodes=list(),
         dropout=None,
-        one_hot=False):
+        one_hot=False,
+        batch_norm=False):
 
     tf.set_random_seed(1)
 
     x = tf.placeholder(tf.float32, shape=[None, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, output], name="y_gold")
-    act, _ = graphs.deep_neural_network(x, [features] + hidden_nodes + [output], dropout)
+    training = tf.placeholder(tf.bool) if batch_norm else None
+    act, _ = graphs.deep_neural_network(
+        x,
+        [features] + hidden_nodes + [output],
+        dropout=dropout,
+        batch_norm=batch_norm,
+        training=training
+    )
     y, loss = y_and_loss(act, y_gold, one_hot)
 
-    return Model(x, y, y_gold, loss, train(loss, learning_rate))
+    return Model(x, y, y_gold, loss, train(loss, learning_rate), training=training)
 
 
 def rnn_model(

@@ -1,8 +1,10 @@
-import math
 import tensorflow as tf
 from functools import partial
 from tensorflow.python import control_flow_ops
 from tensorflow.python.framework.ops import op_scope
+
+
+eps = 1e-3
 
 
 def param_norm(shape, name):
@@ -17,7 +19,24 @@ def param(shape, init, name=None, trainable=True):
     return tf.Variable(tf.ones(shape) * init, dtype="float32", name=name, trainable=trainable)
 
 
-def deep_neural_network(input_tensor, layers, dropout=None):
+def batch_norm_wrapper(z, is_training, decay=0.999):
+
+    gamma = param([z.get_shape()[-1]], 1)
+    beta = param([z.get_shape()[-1]], 0)
+    pop_mean = param([z.get_shape()[-1]], 0, trainable=False)
+    pop_var = param([z.get_shape()[-1]], 1, trainable=False)
+
+    if is_training:
+        batch_mean, batch_var = tf.nn.moments(z, [0])
+        train_mean = tf.assign(pop_mean, tf.mul(pop_mean, decay) + batch_mean * (1 - decay))
+        train_var = tf.assign(pop_var, tf.mul(pop_var, decay) + batch_var * (1 - decay))
+        with tf.control_dependencies([train_mean, train_var]):
+            return tf.nn.batch_normalization(z, batch_mean, batch_var, beta, gamma, eps)
+    else:
+        return tf.nn.batch_normalization(z, pop_mean, pop_var, beta, gamma, eps)
+
+
+def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, training=None):
 
     assert len(layers) >= 2
 
@@ -33,6 +52,13 @@ def deep_neural_network(input_tensor, layers, dropout=None):
         b = param_norm([nodes], "b%d" % i)
 
         act = tf.matmul(trans, w) + b
+
+        if batch_norm:
+            act = control_flow_ops.cond(
+                training,
+                lambda: batch_norm_wrapper(act, True),
+                lambda: batch_norm_wrapper(act, False)
+            )
 
         if i + 1 < len(layers):
             trans = tf.nn.relu(act)
@@ -123,8 +149,6 @@ def rnn(graph_type, cell, x):
 
 
 def ladder_network(x, layers, noise, training, denoising_cost):
-
-    eps = 1e-3
 
     def batch_norm(z, batch_mean, batch_var, gamma, beta, include_noise):
         with op_scope([z, batch_mean, batch_var, gamma, beta], None, "batchnorm"):
