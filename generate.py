@@ -71,6 +71,15 @@ def fixed_polyphony(l):
     return lambda: (l, l, l)
 
 
+def random_instrument():
+    ls = range(10) + range(13, 17) + [19, 21] + range(23, 31) + range(32, 39)
+    return random.choice(ls)
+
+
+def fixed_instrument(l=0):
+    return lambda: l
+
+
 def tracking_melody(measures, measure_length, key, lower, upper, rest_probability, velocity=random_velocity):
     notes = random.randint(measures/upper, measures/lower)
     events = range(1, measures+1)
@@ -120,27 +129,33 @@ def random_pattern(polyphony, velocity, notes, rest_probability=0.1):
     return pattern
 
 
-def write_wav_file(mid_file_name, wav_file_name, out_file):
-    call(["/usr/local/bin/timidity", mid_file_name, "-Ow", "-o", wav_file_name, "-s", "16k"], stdout=out_file, stderr=out_file)
+def write_wav_file(mid_file_name, wav_file_name, out_file, instrument):
+    call([
+        "/usr/local/bin/timidity", mid_file_name,
+        "-Ow",
+        "-Ei%d" % instrument(),
+        "-o", wav_file_name,
+        "-s", "16k"], stdout=out_file, stderr=out_file)
 
 
-def generate_pair(num, out_file, corpus, polyphony, velocity, notes=PIANO_NOTES):
+def generate_pair(num, out_file, corpus, polyphony, velocity, instrument, notes=PIANO_NOTES):
     mid_file_name = "%s/%04d.mid" % (corpus, num)
     wav_file_name = "%s/%04d.wav" % (corpus, num)
     midi.write_midifile(mid_file_name, random_pattern(polyphony, velocity, notes))
-    write_wav_file(mid_file_name, wav_file_name, out_file)
+    write_wav_file(mid_file_name, wav_file_name, out_file, instrument)
 
 
 if __name__ == "__main__":
     of = open(os.devnull, 'w')
-    number = 800
-    cn = "16k_piano_notes_88_poly_3_to_15_velocity_63_to_127"
+    number = 5000
+    cn = "16k_multi_instrument_notes_88_poly_3_to_15_velocity_63_to_127"
     c = "corpus/%s" % cn
     if not os.path.exists(c):
         os.makedirs(c)
         print "Created directory %s" % c
     p = random_polyphony(3, 15)
     v = random_velocity(63, 127)
+    i = random_instrument
     for n in range(0, number):
-        generate_pair(n, of, c, p, v, notes=PIANO_NOTES)
+        generate_pair(n, of, c, p, v, i, notes=PIANO_NOTES)
         print "Completed %d of %d in [%s]" % (n + 1, number, c)
