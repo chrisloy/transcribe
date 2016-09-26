@@ -193,17 +193,29 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
 def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
     with tf.Session() as sess:
 
-        ac, m = model.hybrid_model(
-            660,
-            p.outputs(),
-            p.steps,
-            p.hidden,
-            p.hidden_nodes,
-            p.graph_type,
-            p.learning_rate,
-            ac_rate,
-            dropout=p.dropout
-        )
+        if p.hidden == 88:
+            ac, m = model.hybrid_model_no_transfers(
+                660,
+                p.outputs(),
+                p.steps,
+                p.hidden_nodes,
+                p.graph_type,
+                p.learning_rate,
+                ac_rate,
+                dropout=p.dropout
+            )
+        else:
+            ac, m = model.hybrid_model(
+                660,
+                p.outputs(),
+                p.steps,
+                p.hidden,
+                p.hidden_nodes,
+                p.graph_type,
+                p.learning_rate,
+                ac_rate,
+                dropout=p.dropout
+            )
 
         sess.run(tf.initialize_all_variables())
 
@@ -232,8 +244,8 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
 
         persist.save(sess, m, d, p)
 
-        y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train, m.i_state: d.init_train}, session=sess))
-        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess))
+        y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train}, session=sess))
+        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test}, session=sess))
 
         y_gold_train = unroll_sequences(d.y_train)
         y_gold_test = unroll_sequences(d.y_test)
