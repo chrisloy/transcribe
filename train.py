@@ -31,16 +31,16 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
             d.shuffle_sequences()
         t1 = time.time()
         if j == epochs or j % report_epochs == 0:
-            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f (%0.8f) - TEST %s: %0.8f (%0.8f) - TIME: %0.4fs\n" %
+            sys.stdout.write("EPOCH %03d/%d - DEV %s: %0.8f (%0.8f) - TEST %s: %0.8f (%0.8f) - TIME: %0.4fs\n" %
                              (
                                  j,
                                  epochs,
                                  m.report_name,
-                                 m.report_target.eval(feed_dict=m.train_labelled_feed(d)),
-                                 m.loss.eval(feed_dict=m.train_labelled_feed(d)),
+                                 m.report_target.eval(feed_dict=m.dev_labelled_feed(d)),
+                                 0,  # m.loss.eval(feed_dict=m.train_labelled_feed(d)),
                                  m.report_name,
                                  m.report_target.eval(feed_dict=m.test_labelled_feed(d)),
-                                 m.loss.eval(feed_dict=m.test_labelled_feed(d)),
+                                 0,  # m.loss.eval(feed_dict=m.test_labelled_feed(d)),
                                  float(epoch_time) / float(j - j_last)
                              ))
             j_last = j
@@ -112,7 +112,7 @@ def load_data(p, from_cache):
     return d
 
 
-def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre_d=None, ui=True):
+def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_ps=list(), pre_d=None, ui=True):
     if not d:
         d = load_data(p, from_cache)
         if p.subsample:
@@ -123,7 +123,6 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
             p.graph_type,
             d.features,
             p.outputs(),
-            p.batch_size,
             hidden_nodes=p.hidden_nodes,
             learning_rate=p.learning_rate,
             dropout=p.dropout
@@ -136,7 +135,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_p=None, pre
         else:
             sess.run(tf.initialize_all_variables())
 
-        if pre_p:
+        for pre_p in pre_ps:
             if not pre_d:
                 pre_d = load_data(pre_p, from_cache).shuffle_frames()
             pre_d.set_test(d.x_test, d.y_test)

@@ -12,7 +12,7 @@ def save(sess, m, d, p):
     saver = tf.train.Saver()
     saver.save(sess, "graphs/%s-variables.ckpt" % graph_id)
     results = {
-        "train_err": float(m.report_target.eval(feed_dict=m.train_labelled_feed(d))),
+        "dev_err": float(m.report_target.eval(feed_dict=m.dev_labelled_feed(d))),
         "test_err": float(m.report_target.eval(feed_dict=m.test_labelled_feed(d)))
     }
     with open('graphs/%s-meta.json' % graph_id, 'w') as outfile:

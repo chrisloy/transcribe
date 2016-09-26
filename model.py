@@ -1,7 +1,5 @@
 import graphs
 import tensorflow as tf
-from tensorflow.python import control_flow_ops
-import math
 
 
 class Model:
@@ -26,11 +24,12 @@ class Model:
         correct_prediction = tf.equal(tf.argmax(self.y, 1), tf.argmax(self.y_gold, 1))
         return tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-    def train_labelled_feed(self, d):
+    def dev_labelled_feed(self, d):
+        l = d.x_test.shape[0] / 2
         if self.training is not None:
-            return {self.x: d.x_train, self.y_gold: d.y_train, self.training: False}
+            return {self.x: d.x_train[0:l, :], self.y_gold: d.y_train[0:l, :], self.training: False}
         else:
-            return {self.x: d.x_train, self.y_gold: d.y_train}
+            return {self.x: d.x_train[0:l, :], self.y_gold: d.y_train[0:l, :]}
 
     def test_labelled_feed(self, d):
         if self.training is not None:
@@ -145,7 +144,7 @@ def hybrid_model(
     train_acoustic = train(loss_acoustic, acoustic_learning_rate)
     acoustic = Model(x, y_acoustic, y_gold, loss_acoustic, train_acoustic)
 
-    def transfer_layer(not_used):
+    def transfer_layer(_):
         return graphs.logistic_regression(frozen_acoustic, acoustic_hidden_nodes[-1], rnn_state_size)
 
     # Sequence Model
@@ -209,7 +208,7 @@ def hybrid_model_no_transfers(
     train_acoustic = train(loss_acoustic, acoustic_learning_rate)
     acoustic = Model(x, y_acoustic, y_gold, loss_acoustic, train_acoustic)
 
-    def transfer_layer(not_used):
+    def transfer_layer(_):
         return frozen_acoustic
 
     # Sequence Model
@@ -247,7 +246,6 @@ def frame_model(
         graph_type,
         features,
         output,
-        batch_size,
         learning_rate=0.02,
         hidden_nodes=list(),
         dropout=None,
