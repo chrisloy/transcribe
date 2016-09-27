@@ -51,9 +51,9 @@ class Model:
 
     def train_batch_feed(self, d, lower, upper):
         if self.training is not None:
-            return {self.x: d.x_train[lower:upper, :], self.y_gold: d.y_train[lower:upper, :], self.training: True}
+            return {self.x: d.x_train[lower:upper], self.y_gold: d.y_train[lower:upper], self.training: True}
         else:
-            return {self.x: d.x_train[lower:upper, :], self.y_gold: d.y_train[lower:upper, :]}
+            return {self.x: d.x_train[lower:upper], self.y_gold: d.y_train[lower:upper]}
 
 
 def feed_forward_model(
@@ -70,7 +70,7 @@ def feed_forward_model(
     x = tf.placeholder(tf.float32, shape=[None, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, output], name="y_gold")
     training = tf.placeholder(tf.bool) if batch_norm else None
-    act, _ = graphs.deep_neural_network(
+    act = graphs.deep_neural_network(
         x,
         [features] + hidden_nodes + [output],
         dropout=dropout,
@@ -120,19 +120,13 @@ def hybrid_model(
 
     x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x_sequence")
     y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_sequence_gold")
-
-    x_acoustic = x                                                        # (batch, steps, features)
-    x_acoustic = tf.transpose(x_acoustic, [1, 0, 2])                      # (steps, batch, features)
-    x_acoustic = tf.reshape(x_acoustic, [-1, features])                   # (steps * batch, features)
-
-    y_acoustic_gold = y_gold                                              # (batch, steps, notes)
-    y_acoustic_gold = tf.transpose(y_acoustic_gold, [1, 0, 2])            # (steps, batch, notes)
-    y_acoustic_gold = tf.reshape(y_acoustic_gold, [-1, notes])            # (steps * batch, notes)
+    x_acoustic = split_sequence_into_frames(x, features)
+    y_acoustic_gold = split_sequence_into_frames(y_gold, notes)
 
     # Acoustic Model
     layers = [features] + acoustic_hidden_nodes
 
-    logits_acoustic_fixed, _ = graphs.deep_neural_network(x_acoustic, layers, dropout)
+    logits_acoustic_fixed = graphs.deep_neural_network(x_acoustic, layers, dropout)
     logits_acoustic = graphs.logistic_regression(logits_acoustic_fixed, acoustic_hidden_nodes[-1], notes)
     y_acoustic, loss_acoustic = y_and_loss(logits_acoustic, y_acoustic_gold, one_hot)
 
@@ -184,19 +178,13 @@ def hybrid_model_no_transfers(
 
     x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x_sequence")
     y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_sequence_gold")
-
-    x_acoustic = x                                              # (batch, steps, features)
-    x_acoustic = tf.transpose(x_acoustic, [1, 0, 2])            # (steps, batch, features)
-    x_acoustic = tf.reshape(x_acoustic, [-1, features])         # (steps * batch, features)
-
-    y_acoustic_gold = y_gold                                    # (batch, steps, notes)
-    y_acoustic_gold = tf.transpose(y_acoustic_gold, [1, 0, 2])  # (steps, batch, notes)
-    y_acoustic_gold = tf.reshape(y_acoustic_gold, [-1, notes])  # (steps * batch, notes)
+    x_acoustic = split_sequence_into_frames(x, features)
+    y_acoustic_gold = split_sequence_into_frames(y_gold, notes)
 
     # Acoustic Model
     layers = [features] + acoustic_hidden_nodes + [notes]
 
-    logits_acoustic_fixed, _ = graphs.deep_neural_network(x_acoustic, layers, dropout)
+    logits_acoustic_fixed = graphs.deep_neural_network(x_acoustic, layers, dropout)
     logits_acoustic = logits_acoustic_fixed
     y_acoustic, loss_acoustic = y_and_loss(logits_acoustic, y_acoustic_gold, one_hot)
 
@@ -279,3 +267,49 @@ def ladder_model(
     m = Model(x, y, y_gold, loss, train_step, training=training)
     m.set_report("ERROR", s_cost)
     return m
+
+
+def hierarchical_deep_network(
+        features,
+        notes,
+        steps,
+        frame_hidden_nodes,
+        frame_dropout,
+        frame_learning_rate,
+        sequence_hidden_nodes,
+        sequence_dropout,
+        sequence_learning_rate):
+
+    tf.set_random_seed(1)
+
+    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
+    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
+
+    x_frame = tf.reshape(x, [-1, features])
+    y_frame_gold = tf.reshape(y_gold, [-1, notes])
+
+    # Frame model
+    frame_layers = [features] + frame_hidden_nodes + [notes]
+    logits_frame = graphs.deep_neural_network(x_frame, frame_layers, frame_dropout)
+    y_frame, loss_frame = y_and_loss(logits_frame, y_frame_gold)
+    frozen_frame = tf.stop_gradient(logits_frame)
+    train_frame = train(loss_frame, frame_learning_rate)
+    frame = Model(x, y_frame, y_gold, loss_frame, train_frame)
+
+    x_sequence = tf.reshape(frozen_frame, [-1, steps * notes])
+
+    # Sequence model
+    sequence_layers = [steps * notes] + sequence_hidden_nodes + [steps * notes]
+    logits_sequence = graphs.deep_neural_network(x_sequence, sequence_layers, sequence_dropout, init='identity')
+    y_gold_flat = tf.reshape(y_gold, [-1, steps * notes])
+    y_sequence, loss_sequence = y_and_loss(logits_sequence, y_gold_flat)
+    y_sequence = tf.reshape(y_sequence, [-1, steps, notes])
+    train_sequence = train(loss_sequence, sequence_learning_rate)
+    sequence = Model(x, y_sequence, y_gold, loss_sequence, train_sequence)
+
+    return frame, sequence
+
+
+def split_sequence_into_frames(sequence, frame_size):  # (batch, steps, frame_size)
+    frame = tf.transpose(sequence, [1, 0, 2])          # (steps, batch, frame_size)
+    return tf.reshape(frame, [-1, frame_size])         # (steps * batch, frame_size)

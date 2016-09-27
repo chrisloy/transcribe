@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 from functools import partial
 from tensorflow.python import control_flow_ops
@@ -7,16 +8,20 @@ from tensorflow.python.framework.ops import op_scope
 eps = 1e-3
 
 
+def flatten(l):
+    return sum(map(lambda i: flatten(i) if type(i) == list else [i], l), [])
+
+
 def param_norm(shape, name):
-    return tf.Variable(tf.truncated_normal(shape, 0.1, seed=1234), dtype="float32", name=name)
+    return tf.Variable(tf.truncated_normal(flatten(shape), 0.1, seed=1234), dtype="float32", name=name)
 
 
 def param_zeros(shape, name):
-    return tf.Variable(tf.zeros(shape), dtype="float32", name=name)
+    return tf.Variable(tf.zeros(flatten(shape)), dtype="float32", name=name)
 
 
 def param(shape, init, name=None, trainable=True):
-    return tf.Variable(tf.ones(shape) * init, dtype="float32", name=name, trainable=trainable)
+    return tf.Variable(tf.ones(flatten(shape)) * init, dtype="float32", name=name, trainable=trainable)
 
 
 def batch_norm_wrapper(z, is_training, decay=0.999):
@@ -36,20 +41,27 @@ def batch_norm_wrapper(z, is_training, decay=0.999):
         return tf.nn.batch_normalization(z, pop_mean, pop_var, beta, gamma, eps)
 
 
-def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, training=None):
+def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, training=None, init='gaussian'):
 
     assert len(layers) >= 2
 
     act = None
     trans = input_tensor
-    hs = []
 
     print "Graph shape: %s" % " --> ".join(map(str, layers))
 
     for i, nodes in enumerate(layers[1:]):
 
-        w = param_norm([layers[i], nodes], "W%d" % i)
-        b = param_norm([nodes], "b%d" % i)
+        if init == 'gaussian':
+            w = param_norm([layers[i], nodes], "W%d" % i)
+            b = param_norm([nodes], "b%d" % i)
+        elif init == 'identity':
+            w = tf.Variable(initial_value=np.eye(layers[i], nodes), name=("W%d" % i), dtype="float32")
+            b = param_zeros([nodes], "b%d" % i)
+        else:
+            assert False, "Unexpected init command [%s]" % init
+
+        print trans.get_shape(), " x ", w.get_shape(), " + ", b.get_shape()
 
         act = tf.matmul(trans, w) + b
 
@@ -64,16 +76,11 @@ def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, tr
             trans = tf.nn.relu(act)
             if dropout:
                 trans = tf.nn.dropout(trans, dropout, seed=1)
-
-        if i + 2 < len(layers):
-            hs.append(act)
-
-    return act, hs
+    return act
 
 
 def logistic_regression(input_tensor, input_size, output_size):
-    y, _ = deep_neural_network(input_tensor, [input_size, output_size])
-    return y
+    return deep_neural_network(input_tensor, [input_size, output_size])
 
 
 def rnn_no_layers(input_tensor, size, steps, graph_type, input_model):
@@ -152,7 +159,7 @@ def ladder_network(x, layers, noise, training, denoising_cost):
 
     def batch_norm(z, batch_mean, batch_var, gamma, beta, include_noise):
         with op_scope([z, batch_mean, batch_var, gamma, beta], None, "batchnorm"):
-            z_out = (z - batch_mean) / tf.sqrt(batch_var + eps)
+            z_out = (z - batch_mean) / tf.sqrt(tf.add(batch_var, eps))
             if include_noise:
                 z_out = add_noise(z_out, noise)
             z_fixed = tf.mul(gamma, z_out) + beta

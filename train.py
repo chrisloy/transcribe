@@ -137,7 +137,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_ps=list(), 
 
         for pre_p in pre_ps:
             if not pre_d:
-                pre_d = load_data(pre_p, from_cache).shuffle_frames()
+                pre_d = load_data(pre_p, from_cache)
             pre_d.set_test(d.x_test, d.y_test)
             print "Pre-training with %s" % pre_p.corpus
             train_frame_model(pre_p.epochs, m, pre_d, report_epochs)
@@ -180,6 +180,9 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         train_sequence_model(p.epochs, m, d, report_epochs)
 
         persist.save(sess, m, d, p)
+
+        def unroll_sequences(foo):
+            return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
 
         y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train, m.i_state: d.init_train}, session=sess))
         y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess))
@@ -224,7 +227,7 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
                 pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
 
             print "***** Pre-training on frames using [%s]" % pre_p.corpus
-            train_frame_model(pre_p.epochs, ac, pre_d, report_epochs)
+            train_frame_model(pre_p.epochs, ac, pre_d, report_epochs, shuffle=False)
 
             print "***** Pre-training on sequences using [%s]" % pre_p.corpus
             train_sequence_model(pre_p.epochs, m, pre_d, report_epochs)
@@ -244,6 +247,9 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
 
         persist.save(sess, m, d, p)
 
+        def unroll_sequences(foo):
+            return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
+
         y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train}, session=sess))
         y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test}, session=sess))
 
@@ -253,8 +259,52 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
         report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
 
 
-def unroll_sequences(foo):
-    return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
+def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
+    with tf.Session() as sess:
+        d = load_data(p, from_cache).to_sequences(p.steps)
+
+        frame_epochs = 100
+
+        frame, sequence = model.hierarchical_deep_network(
+            d.features,
+            p.outputs(),
+            p.steps,
+            frame_hidden_nodes=[176],
+            frame_dropout=None,
+            frame_learning_rate=0.01,
+            sequence_hidden_nodes=[p.steps * 134],
+            sequence_dropout=None,
+            sequence_learning_rate=0.0001
+        )
+
+        sess.run(tf.initialize_all_variables())
+
+        def unroll_sequences(foo):
+            return np.reshape(foo, [-1, foo.shape[-1]])
+
+        print "***** Training on frames using [%s]" % p.corpus
+        train_frame_model(frame_epochs, frame, d, report_epochs, shuffle=False)
+
+        y_pred_train = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
+        y_pred_test = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
+
+        y_gold_train = unroll_sequences(d.y_train)
+        y_gold_test = unroll_sequences(d.y_test)
+
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
+
+        print "***** Training on sequences using [%s]" % p.corpus
+        train_sequence_model(p.epochs, sequence, d, report_epochs)
+
+        persist.save(sess, sequence, d, p)
+
+        y_pred_train = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
+        y_pred_test = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
+
+        y_gold_train = unroll_sequences(d.y_train)
+        y_gold_test = unroll_sequences(d.y_test)
+
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
 
 
 def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui):
@@ -265,6 +315,7 @@ def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
     report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui)
 
     if ui:
+        plot_piano_roll(y_pred_train[:1500, :], y_gold_train[:1500, :])
         plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
 
 
@@ -338,7 +389,7 @@ def run_one_hot_joint_model(p, from_cache=True):
     with tf.Session() as sess:
         d = data.load(
             p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-        ).to_one_hot().to_padded(p.padding).shuffle_frames()
+        ).to_one_hot().to_padded(p.padding)
         m = model.feed_forward_model(
                 d.features,
                 p.outputs() + 1,
@@ -431,93 +482,15 @@ def produce_prediction(slice_samples, x, y):
 
 
 if __name__ == "__main__":
-
-    # Scores to beat:
-    # LSTM:                                     0.15517218
-    # Frame: 0 hidden layers:                   0.15908915
-    # Frame: 1 hidden layer:    DROPOUT: 0.5    0.15406726   (0.919213 ROC AUC)
-    # Frame: 2 hidden layers:   DROPOUT: None   0.15111840   (0.923800 ROC AUC) marveled-pan's
-    # Hybrid: 1 hidden layers:  DROPOUT: None   0.15685987
-
-    run_frame_model(
+    run_hierarchical_model(
         Params(
-            epochs=10,
-            train_size=50,
-            test_size=15,
-            hidden_nodes=[176, 132],
-            corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            learning_rate=0.01,
-            lower=21,
-            upper=109,
-            padding=0,
-            batch_size=512,
-            dropout=False,
-            graph_type='ladder'
+            epochs=20,
+            train_size=60,
+            test_size=20,
+            corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
+            steps=64,
+            batch_size=32
         ),
         report_epochs=1
     )
 
-    # run_hybrid_model(
-    #     Params(
-    #         epochs=200,
-    #         train_size=600,
-    #         test_size=200,
-    #         hidden_nodes=[176, 134],
-    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-    #         learning_rate=0.001,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         batch_size=16,
-    #         steps=256,
-    #         hidden=64,
-    #         graph_type='lstm'
-    #     ),
-    #     pre_p=Params(
-    #         epochs=50,
-    #         train_size=48,
-    #         test_size=2,
-    #         hidden_nodes=[176, 132],
-    #         corpus="piano_notes_88_mono_velocity_95",
-    #         learning_rate=0.4,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         steps=256,
-    #         batch_size=16
-    #     ),
-    #     report_epochs=10,
-    #     ac_rate=0.007,
-    #     ac_epochs=220
-    # )
-
-    # Best 2-layer  (0.14959867 / 0.924106)  /  DROPOUT = OFF
-    # run_frame_model(
-    #     Params(
-    #         epochs=200,
-    #         train_size=600,
-    #         test_size=200,
-    #         hidden_nodes=[176, 132],
-    #         corpus="piano_notes_88_poly_3_to_15_velocity_63_to_127",
-    #         learning_rate=0.007,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         batch_size=4096,
-    #         dropout=False
-    #     ),
-    #     report_epochs=10,
-    #     pre_p=Params(
-    #         epochs=50,
-    #         train_size=48,
-    #         test_size=2,
-    #         hidden_nodes=[176, 132],
-    #         corpus="piano_notes_88_mono_velocity_95",
-    #         learning_rate=0.4,
-    #         lower=21,
-    #         upper=109,
-    #         padding=0,
-    #         batch_size=4096
-    #     ),
-    #     ui=False
-    # )

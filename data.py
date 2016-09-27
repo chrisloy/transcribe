@@ -18,6 +18,7 @@ class Data:
     # Y: (data_points, notes)
 
     def __init__(self, x_train, y_train, x_test, y_test, batches, batch_size):
+        assert batches > 0, "Batch size too high, zero batches constructed!"
         self.x_train = x_train
         self.y_train = y_train
         self.x_test = x_test
@@ -98,7 +99,7 @@ class Data:
         self.x_test[self.x_test < threshold] = 0
         return self
 
-    def to_sequences(self, sequence_length):
+    def to_sequences_old(self, sequence_length):
 
         seqs = self.x_train.shape[0] / sequence_length
         keep = seqs * sequence_length
@@ -116,6 +117,29 @@ class Data:
 
         print "Separated data into [%d] train and [%d] test sequences of length [%d]" %\
               (self.n_train, self.n_test, sequence_length)
+
+        return self
+
+    def to_sequences(self, steps):
+
+        keep = (self.x_train.shape[0] / steps) * steps
+
+        self.x_train = np.reshape(self.x_train[:keep, :], [-1, steps, self.features])
+        self.y_train = np.reshape(self.y_train[:keep, :], [-1, steps, self.notes])
+
+        keep = (self.x_test.shape[0] / steps) * steps
+
+        self.x_test = np.reshape(self.x_test[:keep, :], [-1, steps, self.features])
+        self.y_test = np.reshape(self.y_test[:keep, :], [-1, steps, self.notes])
+
+        self.n_train = self.x_train.shape[0]
+        self.n_test = self.x_test.shape[0]
+        self.batches = self.n_train / self.batch_size
+
+        assert self.batches > 0, "Batch size too high, zero batches constructed!"
+
+        print "Separated data into [%d] train and [%d] test sequences of length [%d]" %\
+              (self.n_train, self.n_test, steps)
 
         return self
 
