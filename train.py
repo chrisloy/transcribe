@@ -14,6 +14,7 @@ from domain import Params
 from sklearn.metrics import roc_curve, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
 from matplotlib import pyplot as plt
 from os import devnull
+from scipy.optimize import minimize_scalar as minimize
 
 
 def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None):
@@ -294,13 +295,18 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
         print "***** Training on sequences using [%s]" % p.corpus
         train_sequence_model(p.epochs, sequence, d, report_epochs)
 
-        persist.save(sess, sequence, d, p)
-
         y_pred_train = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
         y_pred_test = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
 
         y_gold_train = unroll_sequences(d.y_train)
         y_gold_test = unroll_sequences(d.y_test)
+
+        def f1(t):
+            return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
+
+        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
+        print "Found threshold [%f]" % threshold
+        persist.save(sess, sequence, d, p, threshold)
 
         report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
 

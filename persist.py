@@ -6,14 +6,15 @@ import namer
 import tensorflow as tf
 
 
-def save(sess, m, d, p):
+def save(sess, m, d, p, threshold=0.5):
     graph_id = namer.new_name()
     print "Saving variables..."
     saver = tf.train.Saver()
     saver.save(sess, "graphs/%s-variables.ckpt" % graph_id)
     results = {
         "dev_err": float(m.report_target.eval(feed_dict=m.dev_labelled_feed(d))),
-        "test_err": float(m.report_target.eval(feed_dict=m.test_labelled_feed(d)))
+        "test_err": float(m.report_target.eval(feed_dict=m.test_labelled_feed(d))),
+        "threshold": threshold
     }
     with open('graphs/%s-meta.json' % graph_id, 'w') as outfile:
         json.dump({"params": p.__dict__, "results": results}, outfile)
@@ -25,9 +26,20 @@ def load(sess, graph_id, features=660):
     with open('graphs/%s-meta.json' % graph_id, 'r') as infile:
         dx = json.load(infile)
         params = dx["params"]
-    p = domain.from_dict(defaultdict(lambda: None, params))
+    p = domain.Params(**params)
     m = None
-    if p.graph_type == 'mlp':
+    if p.sequence_learning_rate:
+        _, m = model.hierarchical_deep_network(
+            features,
+            p.outputs(),
+            p.steps,
+            p.frame_hidden_nodes,
+            p.frame_dropout,
+            p.frame_learning_rate,
+            p.sequence_hidden_nodes,
+            p.sequence_dropout,
+            p.sequence_learning_rate)
+    elif p.graph_type == 'mlp':
         m = model.feed_forward_model(
             features,
             p.outputs(),

@@ -122,15 +122,8 @@ class Data:
 
     def to_sequences(self, steps):
 
-        keep = (self.x_train.shape[0] / steps) * steps
-
-        self.x_train = np.reshape(self.x_train[:keep, :], [-1, steps, self.features])
-        self.y_train = np.reshape(self.y_train[:keep, :], [-1, steps, self.notes])
-
-        keep = (self.x_test.shape[0] / steps) * steps
-
-        self.x_test = np.reshape(self.x_test[:keep, :], [-1, steps, self.features])
-        self.y_test = np.reshape(self.y_test[:keep, :], [-1, steps, self.notes])
+        self.x_train, self.y_train = split_by_steps(self.x_train, self.y_train, steps, self.features, self.notes)
+        self.x_test, self.y_test = split_by_steps(self.x_test, self.y_test, steps, self.features, self.notes)
 
         self.n_train = self.x_train.shape[0]
         self.n_test = self.x_test.shape[0]
@@ -142,6 +135,13 @@ class Data:
               (self.n_train, self.n_test, steps)
 
         return self
+
+
+def split_by_steps(x, y, steps, features, notes):
+    keep = (x.shape[0] / steps) * steps
+    x = np.reshape(x[:keep, :], [-1, steps, features])
+    y = np.reshape(y[:keep, :], [-1, steps, notes])
+    return x, y
 
 
 def poly_kernel(x):
