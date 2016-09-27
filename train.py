@@ -17,21 +17,22 @@ from os import devnull
 from scipy.optimize import minimize_scalar as minimize
 
 
-def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None):
+def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None, log=True):
     if batch_override:
         batches, batch_size = batch_override
     else:
         batches, batch_size = d.batches, d.batch_size
     epoch_time = 0.0
     j_last = -1
-    print "Training frame model with [%d] batches of size [%d]" % (batches, batch_size)
+    if log:
+        print "Training frame model with [%d] batches of size [%d]" % (batches, batch_size)
     for j in range(epochs + 1):
         if shuffle:
             d.shuffle_frames()
         else:
             d.shuffle_sequences()
         t1 = time.time()
-        if j == epochs or j % report_epochs == 0:
+        if log and (j == epochs or j % report_epochs == 0):
             sys.stdout.write("EPOCH %03d/%d - DEV %s: %0.8f (%0.8f) - TEST %s: %0.8f (%0.8f) - TIME: %0.4fs\n" %
                              (
                                  j,
@@ -50,8 +51,9 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
 
         if j < epochs:
             for k in range(batches):
-                sys.stdout.write("EPOCH %03d/%d - BATCH %04d/%d\r" % (j + 1, epochs, k + 1, batches))
-                sys.stdout.flush()
+                if log:
+                    sys.stdout.write("EPOCH %03d/%d - BATCH %04d/%d\r" % (j + 1, epochs, k + 1, batches))
+                    sys.stdout.flush()
 
                 start = k * batch_size
                 stop = (k + 1) * batch_size
@@ -113,7 +115,7 @@ def load_data(p, from_cache):
     return d
 
 
-def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_ps=list(), pre_d=None, ui=True):
+def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_ps=list(), pre_d=None, ui=True, log=True):
     if not d:
         d = load_data(p, from_cache)
         if p.subsample:
@@ -141,17 +143,25 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_ps=list(), 
                 pre_d = load_data(pre_p, from_cache)
             pre_d.set_test(d.x_test, d.y_test)
             print "Pre-training with %s" % pre_p.corpus
-            train_frame_model(pre_p.epochs, m, pre_d, report_epochs)
+            train_frame_model(pre_p.epochs, m, pre_d, report_epochs, log=log)
             print "Completed pre-training"
 
-        train_frame_model(p.epochs, m, d, report_epochs)
-
-        persist.save(sess, m, d, p)
+        train_frame_model(p.epochs, m, d, report_epochs, log=log)
 
         y_pred_train = m.y.eval(feed_dict=m.train_unlabelled_feed(d), session=sess)
         y_pred_test = m.y.eval(feed_dict=m.test_unlabelled_feed(d), session=sess)
 
-        report_run_results(y_pred_train, d.y_train, y_pred_test, d.y_test, ui)
+        def f1(t):
+            return 1 - f1_score(d.y_test.flatten(), y_pred_test.flatten() >= t)
+
+        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
+        print "Found threshold [%f]" % threshold
+        graph_id, test_error = persist.save(sess, m, d, p, threshold)
+
+        if log:
+            report_run_results(y_pred_train, d.y_train, y_pred_test, d.y_test, ui, threshold)
+
+        return graph_id, test_error
 
 
 def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
@@ -180,8 +190,6 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
 
         train_sequence_model(p.epochs, m, d, report_epochs)
 
-        persist.save(sess, m, d, p)
-
         def unroll_sequences(foo):
             return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
 
@@ -191,7 +199,14 @@ def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None,
         y_gold_train = unroll_sequences(d.y_train)
         y_gold_test = unroll_sequences(d.y_test)
 
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
+        def f1(t):
+            return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
+
+        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
+        print "Found threshold [%f]" % threshold
+        persist.save(sess, m, d, p, threshold)
+
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
 
 
 def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
@@ -246,8 +261,6 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
 
         print "***** Completed training"
 
-        persist.save(sess, m, d, p)
-
         def unroll_sequences(foo):
             return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
 
@@ -257,7 +270,14 @@ def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_
         y_gold_train = unroll_sequences(d.y_train)
         y_gold_test = unroll_sequences(d.y_test)
 
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
+        def f1(t):
+            return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
+
+        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
+        print "Found threshold [%f]" % threshold
+        persist.save(sess, m, d, p, threshold)
+
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
 
 
 def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
@@ -290,7 +310,12 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
         y_gold_train = unroll_sequences(d.y_train)
         y_gold_test = unroll_sequences(d.y_test)
 
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
+        def f1(t):
+            return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
+
+        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
+
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
 
         print "***** Training on sequences using [%s]" % p.corpus
         train_sequence_model(p.epochs, sequence, d, report_epochs)
@@ -308,22 +333,22 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
         print "Found threshold [%f]" % threshold
         persist.save(sess, sequence, d, p, threshold)
 
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui)
+        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
 
 
-def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui):
+def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold):
     print "TRAIN"
-    report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui)
+    report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui, threshold=threshold)
 
     print "TEST"
-    report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui)
+    report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui, threshold=threshold)
 
     if ui:
         plot_piano_roll(y_pred_train[:1500, :], y_gold_train[:1500, :])
         plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
 
 
-def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True):
+def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True, threshold=0.5):
 
     notes = range(0, y_gold.shape[1])
 
@@ -375,9 +400,9 @@ def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True):
             len(offs),
             float(np.mean(offs)),
             float(np.std(offs)),
-            precision_score(y_gold, y_pred >= 0.5),
-            recall_score(y_gold, y_pred >= 0.5),
-            f1_score(y_gold, y_pred >= 0.5),
+            precision_score(y_gold, y_pred >= threshold),
+            recall_score(y_gold, y_pred >= threshold),
+            f1_score(y_gold, y_pred >= threshold),
             roc_auc_score(y_gold, y_pred)
         )
 
@@ -482,7 +507,7 @@ def produce_prediction(slice_samples, x, y):
     pattern = midi.Pattern()
     pattern.append(track)
     midi.write_midifile("output/sanity_pred_deep.mid", pattern)
-    generate.write_wav_file("output/sanity_pred.mid", "output/sanity_pred_deep.wav", open(devnull, 'w'))
+    generate.write_wav_file("output/sanity_pred.mid", "output/sanity_pred_deep.wav", open(devnull, 'w'), 0)
 
 
 if __name__ == "__main__":

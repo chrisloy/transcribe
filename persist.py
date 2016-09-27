@@ -11,15 +11,16 @@ def save(sess, m, d, p, threshold=0.5):
     print "Saving variables..."
     saver = tf.train.Saver()
     saver.save(sess, "graphs/%s-variables.ckpt" % graph_id)
+    test_error = m.report_target.eval(feed_dict=m.test_labelled_feed(d))
     results = {
         "dev_err": float(m.report_target.eval(feed_dict=m.dev_labelled_feed(d))),
-        "test_err": float(m.report_target.eval(feed_dict=m.test_labelled_feed(d))),
+        "test_err": float(test_error),
         "threshold": threshold
     }
     with open('graphs/%s-meta.json' % graph_id, 'w') as outfile:
         json.dump({"params": p.__dict__, "results": results}, outfile)
     print "Saved graph %s" % graph_id
-    return graph_id
+    return graph_id, test_error
 
 
 def load(sess, graph_id, features=660):
