@@ -263,18 +263,16 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
     with tf.Session() as sess:
         d = load_data(p, from_cache).to_sequences(p.steps)
 
-        frame_epochs = 100
-
         frame, sequence = model.hierarchical_deep_network(
             d.features,
             p.outputs(),
             p.steps,
-            frame_hidden_nodes=[176],
-            frame_dropout=None,
-            frame_learning_rate=0.01,
-            sequence_hidden_nodes=[p.steps * 134],
-            sequence_dropout=None,
-            sequence_learning_rate=0.0001
+            p.frame_hidden_nodes,
+            p.frame_dropout,
+            p.frame_learning_rate,
+            p.sequence_hidden_nodes,
+            p.sequence_dropout,
+            p.sequence_learning_rate
         )
 
         sess.run(tf.initialize_all_variables())
@@ -283,7 +281,7 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
             return np.reshape(foo, [-1, foo.shape[-1]])
 
         print "***** Training on frames using [%s]" % p.corpus
-        train_frame_model(frame_epochs, frame, d, report_epochs, shuffle=False)
+        train_frame_model(p.frame_epochs, frame, d, report_epochs, shuffle=False)
 
         y_pred_train = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
         y_pred_test = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
@@ -484,12 +482,19 @@ def produce_prediction(slice_samples, x, y):
 if __name__ == "__main__":
     run_hierarchical_model(
         Params(
-            epochs=20,
-            train_size=60,
-            test_size=20,
+            epochs=100,
+            train_size=600,
+            test_size=200,
             corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            steps=64,
-            batch_size=32
+            steps=32,
+            batch_size=32,
+            frame_epochs=200,
+            frame_hidden_nodes=[176],
+            frame_dropout=None,
+            frame_learning_rate=0.001,
+            sequence_hidden_nodes=[64 * 134],
+            sequence_dropout=None,
+            sequence_learning_rate=0.0001
         ),
         report_epochs=1
     )

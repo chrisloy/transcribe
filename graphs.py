@@ -61,8 +61,6 @@ def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, tr
         else:
             assert False, "Unexpected init command [%s]" % init
 
-        print trans.get_shape(), " x ", w.get_shape(), " + ", b.get_shape()
-
         act = tf.matmul(trans, w) + b
 
         if batch_norm:

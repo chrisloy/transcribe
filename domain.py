@@ -1,69 +1,25 @@
 
 
 class Params:
-    def __init__(self, epochs, train_size, test_size, corpus, lower=21, upper=109, padding=0, hidden_nodes=list(),
-                 slice_samples=512, batch_size=1000, graph_type="mlp", learning_rate=0.001, steps=None, hidden=None,
-                 dropout=False, subsample=None, batch_norm=False):
+    def __init__(self, epochs, train_size, test_size, corpus, batch_size, **kwargs):
         self.epochs = epochs
         self.train_size = train_size
         self.test_size = test_size
         self.corpus = corpus
-        self.lower = lower
-        self.upper = upper
-        self.padding = padding
-        self.slice_samples = slice_samples
         self.batch_size = batch_size
-        self.hidden_nodes = hidden_nodes
-        self.graph_type = graph_type
-        self.learning_rate = learning_rate
-        self.steps = steps
-        self.hidden = hidden
-        self.dropout = dropout
-        self.subsample = subsample
-        self.batch_norm = batch_norm
-
-    def to_dict(self):
-        return {
-            "epochs": self.epochs,
-            "train_size": self.train_size,
-            "test_size": self.test_size,
-            "corpus": self.corpus,
-            "lower": self.lower,
-            "upper": self.upper,
-            "padding": self.padding,
-            "slice_samples": self.slice_samples,
-            "batch_size": self.batch_size,
-            "hidden_nodes": self.hidden_nodes,
-            "graph_type": self.graph_type,
-            "learning_rate": self.learning_rate,
-            "steps": self.steps,
-            "hidden": self.hidden,
-            "dropout": self.dropout,
-            "subsample": self.subsample,
-            "batch_norm": self.batch_norm
-        }
+        self.lower = 21
+        self.upper = 109
+        self.padding = 0
+        self.hidden_nodes = list()
+        self.slice_samples = 512
+        self.graph_type = "mlp"
+        self.learning_rate = 0.001
+        self.steps = None
+        self.hidden = None
+        self.dropout = False
+        self.subsample = None
+        self.batch_norm = False
+        self.__dict__.update(kwargs)
 
     def outputs(self):
         return self.upper - self.lower
-
-
-def from_dict(dx):
-    return Params(
-        dx["epochs"],
-        dx["train_size"],
-        dx["test_size"],
-        dx["corpus"],
-        dx["lower"],
-        dx["upper"],
-        dx["padding"],
-        dx["hidden_nodes"],
-        dx["slice_samples"],
-        dx["batch_size"],
-        dx["graph_type"],
-        dx["learning_rate"],
-        dx["steps"],
-        dx["hidden"],
-        dx["dropout"],
-        dx["subsample"],
-        dx["batch_norm"]
-    )

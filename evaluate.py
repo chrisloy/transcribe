@@ -3,10 +3,10 @@ import numpy as np
 import os
 import persist
 import re
+import sys
+import tensorflow as tf
 from scipy.optimize import minimize_scalar as minimize
 from sklearn.metrics import f1_score
-import spectrogram as sp
-import tensorflow as tf
 
 
 def predict(m, p, feature_file, midi_file, sess, train_flag=False):
@@ -73,11 +73,12 @@ def test_on_maps(graph, threshold=0.15, is_ladder=False):
 
 
 if __name__ == '__main__':
+    test_on_maps(sys.argv[1])
     # test_on_maps("golder-bravade")     # linear model                               ~21
     # test_on_maps("lappish-gamostely")  # trained on multi instrument (10 epochs)    ~28
     # test_on_maps("causally-nohow")     # trained on multi instrument (20 epochs)    ~28
     # test_on_maps("lyery-estrange")     # trained on multi instrument (200 epochs, 4 subsample)    ~28
-    test_on_maps("thrap-zincide")     # trained on multi instrument (2000 epochs, 2 subsample, pre both)    ~25
+    # test_on_maps("thrap-zincide")     # trained on multi instrument (2000 epochs, 2 subsample, pre both)    ~25
     # graph = sys.argv[1]
     # wav = sys.argv[2]
     # midi = sys.argv[3]
