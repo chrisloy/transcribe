@@ -17,13 +17,14 @@ from os import devnull
 from scipy.optimize import minimize_scalar as minimize
 
 
-def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_override=None, log=True):
-    if batch_override:
-        batches, batch_size = batch_override
-    else:
-        batches, batch_size = d.batches, d.batch_size
+def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, log=True, early_stop=False):
+    batches, batch_size = d.batches, d.batch_size
     epoch_time = 0.0
     j_last = -1
+
+    best_error = 10000000.0
+    best_epoch = 0
+
     if log:
         print "Training frame model with [%d] batches of size [%d]" % (batches, batch_size)
     for j in range(epochs + 1):
@@ -48,6 +49,15 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, batch_overri
             j_last = j
             epoch_time = 0.0
             sys.stdout.flush()
+
+        if early_stop:
+            test_error = m.report_target.eval(feed_dict=m.test_labelled_feed(d))
+            if test_error < best_error:
+                best_epoch = j
+                best_error = test_error
+            elif j > best_epoch + 5:
+                print "5 epochs without improvement - STOP! Best epoch was [%d] error [%f]" % (best_epoch, best_error)
+                break
 
         if j < epochs:
             for k in range(batches):
@@ -115,7 +125,17 @@ def load_data(p, from_cache):
     return d
 
 
-def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_ps=list(), pre_d=None, ui=True, log=True):
+def run_frame_model(
+        p,
+        from_cache=True,
+        d=None,
+        report_epochs=1,
+        pre_ps=list(),
+        pre_d=None,
+        ui=True,
+        log=True,
+        early_stop=False):
+
     if not d:
         d = load_data(p, from_cache)
         if p.subsample:
@@ -146,7 +166,7 @@ def run_frame_model(p, from_cache=True, d=None, report_epochs=1, pre_ps=list(), 
             train_frame_model(pre_p.epochs, m, pre_d, report_epochs, log=log)
             print "Completed pre-training"
 
-        train_frame_model(p.epochs, m, d, report_epochs, log=log)
+        train_frame_model(p.epochs, m, d, report_epochs, log=log, early_stop=early_stop)
 
         y_pred_train = m.y.eval(feed_dict=m.train_unlabelled_feed(d), session=sess)
         y_pred_test = m.y.eval(feed_dict=m.test_unlabelled_feed(d), session=sess)
