@@ -12,7 +12,8 @@ from sklearn.metrics import f1_score
 
 def predict(m, p, feature_file, midi_file, sess, train_flag=False):
     x, y_gold = data.load_named_pair_from_cache(feature_file, midi_file, p.lower, p.upper)
-    x, y_gold = data.split_by_steps(x, y_gold, p.steps, p.features, p.notes)
+    if p.steps:
+        x, y_gold = data.split_by_steps(x, y_gold, p.steps, p.features, p.notes)
     if train_flag:
         y_pred = m.y.eval(feed_dict={m.x: x, m.training: True}, session=sess)
     else:
