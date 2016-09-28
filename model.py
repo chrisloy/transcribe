@@ -101,121 +101,6 @@ def rnn_model(
     return Model(x, y, y_gold, loss, train(loss, learning_rate))
 
 
-def hybrid_model(
-        features,
-        notes,
-        steps,
-        rnn_state_size,
-        acoustic_hidden_nodes,
-        rnn_type,
-        rnn_learning_rate,
-        acoustic_learning_rate,
-        dropout=None,
-        one_hot=False,
-        freeze_frame_model=True):
-
-    tf.set_random_seed(1)
-
-    assert acoustic_hidden_nodes is not None
-
-    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x_sequence")
-    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_sequence_gold")
-    x_acoustic = split_sequence_into_frames(x, features)
-    y_acoustic_gold = split_sequence_into_frames(y_gold, notes)
-
-    # Acoustic Model
-    layers = [features] + acoustic_hidden_nodes
-
-    logits_acoustic_fixed = graphs.deep_neural_network(x_acoustic, layers, dropout)
-    logits_acoustic = graphs.logistic_regression(logits_acoustic_fixed, acoustic_hidden_nodes[-1], notes)
-    y_acoustic, loss_acoustic = y_and_loss(logits_acoustic, y_acoustic_gold, one_hot)
-
-    if freeze_frame_model:
-        frozen_acoustic = tf.stop_gradient(logits_acoustic_fixed)
-    else:
-        frozen_acoustic = logits_acoustic_fixed
-
-    train_acoustic = train(loss_acoustic, acoustic_learning_rate)
-    acoustic = Model(x, y_acoustic, y_gold, loss_acoustic, train_acoustic)
-
-    def transfer_layer(_):
-        return graphs.logistic_regression(frozen_acoustic, acoustic_hidden_nodes[-1], rnn_state_size)
-
-    # Sequence Model
-    sequence = graphs.recurrent_neural_network(
-        x,
-        acoustic_hidden_nodes[-1],
-        notes,
-        steps,
-        rnn_state_size,
-        rnn_type,
-        input_model=transfer_layer
-    )
-
-    y_sequence, loss_sequence = y_and_loss(sequence, y_gold, one_hot)
-    train_sequence = train(loss_sequence, rnn_learning_rate)
-
-    sequence = Model(x, y_sequence, y_gold, loss_sequence, train_sequence)
-
-    return acoustic, sequence
-
-
-def hybrid_model_no_transfers(
-        features,
-        notes,
-        steps,
-        acoustic_hidden_nodes,
-        rnn_type,
-        rnn_learning_rate,
-        acoustic_learning_rate,
-        dropout=None,
-        one_hot=False,
-        freeze_frame_model=True):
-
-    tf.set_random_seed(1)
-
-    assert acoustic_hidden_nodes is not None
-
-    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x_sequence")
-    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_sequence_gold")
-    x_acoustic = split_sequence_into_frames(x, features)
-    y_acoustic_gold = split_sequence_into_frames(y_gold, notes)
-
-    # Acoustic Model
-    layers = [features] + acoustic_hidden_nodes + [notes]
-
-    logits_acoustic_fixed = graphs.deep_neural_network(x_acoustic, layers, dropout)
-    logits_acoustic = logits_acoustic_fixed
-    y_acoustic, loss_acoustic = y_and_loss(logits_acoustic, y_acoustic_gold, one_hot)
-
-    if freeze_frame_model:
-        frozen_acoustic = tf.stop_gradient(logits_acoustic_fixed)
-    else:
-        frozen_acoustic = logits_acoustic_fixed
-
-    train_acoustic = train(loss_acoustic, acoustic_learning_rate)
-    acoustic = Model(x, y_acoustic, y_gold, loss_acoustic, train_acoustic)
-
-    def transfer_layer(_):
-        return frozen_acoustic
-
-    # Sequence Model
-    sequence = graphs.rnn_no_layers(
-        x,
-        notes,
-        steps,
-        rnn_type,
-        transfer_layer
-    )
-
-    y_sequence, loss_sequence = y_and_loss(sequence, y_gold, one_hot)
-    train_sequence = train(loss_sequence, rnn_learning_rate)
-
-    sequence = Model(x, y_sequence, y_gold, loss_sequence, train_sequence)
-
-    return acoustic, sequence
-
-
 def train(loss, learning_rate):
     return tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
@@ -340,9 +225,9 @@ def hierarchical_recurrent_network(
     x_rnn = tf.reshape(frozen_frame, [-1, steps, notes])
 
     # Sequence model
-    logits_rnn = graphs.recurrent_neural_network(x_rnn, notes, notes, steps, rnn_state_size, rnn_graph_type)
+    logits_rnn = graphs.rnn_no_layers(x_rnn, notes, steps, rnn_graph_type)
     y_gold_flat = tf.reshape(y_gold, [-1, steps * notes])
-    y_rnn, loss_rnn = y_and_loss(logits_rnn, y_gold_flat)
+    y_rnn, loss_rnn = y_and_loss(tf.reshape(logits_rnn, [-1, steps * notes]), y_gold_flat)
     y_rnn = tf.reshape(y_rnn, [-1, steps, notes])
     train_rnn = train(loss_rnn, rnn_learning_rate)
     rnn = Model(x, y_rnn, y_gold, loss_rnn, train_rnn)

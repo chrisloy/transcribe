@@ -81,22 +81,22 @@ def logistic_regression(input_tensor, input_size, output_size):
     return deep_neural_network(input_tensor, [input_size, output_size])
 
 
-def rnn_no_layers(input_tensor, size, steps, graph_type, input_model):
+def rnn_no_layers(input_tensor, size, steps, graph_type):
 
-    # TODO this probably doesn't work with a bi-directional RNN
+    # TODO Bi-directional RNN not currently supported
 
-    rnn_out = 2 * size if graph_type.startswith('bi_') else size
+    if graph_type.startswith('bi_'):
+        assert False, "Bi-directional RNNs not supported"
 
     input_layer = input_tensor                                        # (batch, steps, input)
     input_layer = tf.transpose(input_layer, [1, 0, 2])                # (steps, batch, input)
     input_layer = tf.reshape(input_layer, [-1, size])                 # (steps * batch, input)
-    input_layer = input_model(input_layer)                            # (steps * batch, state)
     input_layer = tf.split(0, steps, input_layer)                     # (steps, batch, state)
 
     cell = rnn_cell(graph_type, size)                                 # (steps, batch, state)
 
     output_layer = rnn(graph_type, cell, input_layer)                 # (steps * 2, batch, state)
-    output_layer = tf.reshape(output_layer, [-1, rnn_out])            # (steps * batch, hidden * 2)
+    output_layer = tf.reshape(output_layer, [-1, size])               # (steps * batch, hidden * 2)
     output_layer = tf.split(0, steps, output_layer)                   # (steps, batch, output)
 
     return tf.transpose(output_layer, [1, 0, 2])                      # (batch, steps, output)
@@ -133,8 +133,7 @@ def recurrent_neural_network(
     output_layer = output_model(output_layer)                         # (steps * batch, output)
     output_layer = tf.split(0, steps, output_layer)                   # (steps, batch, output)
 
-    # return tf.transpose(output_layer, [1, 0, 2])                      # (batch, steps, output)
-    return output_layer
+    return tf.transpose(output_layer, [1, 0, 2])                      # (batch, steps, output)
 
 
 def rnn_cell(graph_type, size):

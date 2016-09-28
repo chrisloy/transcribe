@@ -184,122 +184,6 @@ def run_frame_model(
         return graph_id, test_error
 
 
-def run_sequence_model(p, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
-    with tf.Session() as sess:
-        if not d:
-            d = load_data(p, from_cache).to_sequences(p.steps)
-
-        m = model.rnn_model(
-            d.features,
-            p.outputs(),
-            p.steps,
-            p.hidden,
-            p.graph_type,
-            p.learning_rate
-        )
-
-        sess.run(tf.initialize_all_variables())
-
-        if pre_p:
-            if not pre_d:
-                pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
-            pre_d.set_test(d.x_test, d.y_test)
-            print "Pre-training with %s" % pre_p.corpus
-            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs)
-            print "Completed pre-training"
-
-        train_sequence_model(p.epochs, m, d, report_epochs)
-
-        def unroll_sequences(foo):
-            return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
-
-        y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train, m.i_state: d.init_train}, session=sess))
-        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test, m.i_state: d.init_test}, session=sess))
-
-        y_gold_train = unroll_sequences(d.y_train)
-        y_gold_test = unroll_sequences(d.y_test)
-
-        def f1(t):
-            return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
-
-        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
-        print "Found threshold [%f]" % threshold
-        persist.save(sess, m, d, p, threshold)
-
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
-
-
-def run_hybrid_model(p, ac_rate, ac_epochs, from_cache=True, pre_p=None, report_epochs=10, d=None, pre_d=None, ui=True):
-    with tf.Session() as sess:
-
-        if p.hidden == 88:
-            ac, m = model.hybrid_model_no_transfers(
-                660,
-                p.outputs(),
-                p.steps,
-                p.hidden_nodes,
-                p.graph_type,
-                p.learning_rate,
-                ac_rate,
-                dropout=p.dropout
-            )
-        else:
-            ac, m = model.hybrid_model(
-                660,
-                p.outputs(),
-                p.steps,
-                p.hidden,
-                p.hidden_nodes,
-                p.graph_type,
-                p.learning_rate,
-                ac_rate,
-                dropout=p.dropout
-            )
-
-        sess.run(tf.initialize_all_variables())
-
-        if pre_p:
-            if not pre_d:
-                pre_d = load_data(pre_p, from_cache).to_sequences(p.steps)
-
-            print "***** Pre-training on frames using [%s]" % pre_p.corpus
-            train_frame_model(pre_p.epochs, ac, pre_d, report_epochs, shuffle=False)
-
-            print "***** Pre-training on sequences using [%s]" % pre_p.corpus
-            train_sequence_model(pre_p.epochs, m, pre_d, report_epochs)
-
-            print "***** Completed pre-training"
-
-        if not d:
-            d = load_data(p, from_cache).to_sequences(p.steps)
-
-        print "***** Training on frames using [%s]" % p.corpus
-        train_frame_model(ac_epochs, ac, d, report_epochs, shuffle=False)
-
-        print "***** Training on sequences using [%s]" % p.corpus
-        train_sequence_model(p.epochs, m, d, report_epochs)
-
-        print "***** Completed training"
-
-        def unroll_sequences(foo):
-            return np.reshape(foo.transpose(1, 0, 2), [-1, foo.shape[-1]])
-
-        y_pred_train = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_train}, session=sess))
-        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test}, session=sess))
-
-        y_gold_train = unroll_sequences(d.y_train)
-        y_gold_test = unroll_sequences(d.y_test)
-
-        def f1(t):
-            return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
-
-        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
-        print "Found threshold [%f]" % threshold
-        persist.save(sess, m, d, p, threshold)
-
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
-
-
 def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
     with tf.Session() as sess:
         d = load_data(p, from_cache).to_sequences(p.steps)
@@ -548,19 +432,19 @@ def produce_prediction(slice_samples, x, y):
 if __name__ == "__main__":
     run_hierarchical_model(
         Params(
-            epochs=4,
+            epochs=100,
             train_size=600,
             test_size=200,
             corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
             steps=8,
-            batch_size=32,
-            graph_type='mlp_mlp',
-            frame_epochs=200,
-            frame_hidden_nodes=[176],
+            batch_size=128,
+            graph_type='mlp_rnn',
+            frame_epochs=162,
+            frame_hidden_nodes=[88],
             frame_dropout=None,
-            frame_learning_rate=0.001,
-            sequence_hidden_nodes=[64 * 134],
-            sequence_dropout=None,
+            frame_learning_rate=0.01,
+            rnn_state_size=88,
+            rnn_graph_type='rnn',
             sequence_learning_rate=0.0001
         ),
         report_epochs=1
