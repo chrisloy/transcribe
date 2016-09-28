@@ -133,7 +133,8 @@ def recurrent_neural_network(
     output_layer = output_model(output_layer)                         # (steps * batch, output)
     output_layer = tf.split(0, steps, output_layer)                   # (steps, batch, output)
 
-    return tf.transpose(output_layer, [1, 0, 2])                      # (batch, steps, output)
+    # return tf.transpose(output_layer, [1, 0, 2])                      # (batch, steps, output)
+    return output_layer
 
 
 def rnn_cell(graph_type, size):

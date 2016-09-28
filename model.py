@@ -310,6 +310,46 @@ def hierarchical_deep_network(
     return frame, sequence
 
 
+def hierarchical_recurrent_network(
+        features,
+        notes,
+        steps,
+        frame_hidden_nodes,
+        frame_dropout,
+        frame_learning_rate,
+        rnn_state_size,
+        rnn_graph_type,
+        rnn_learning_rate):
+
+    tf.set_random_seed(1)
+
+    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
+    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
+
+    x_frame = tf.reshape(x, [-1, features])
+    y_frame_gold = tf.reshape(y_gold, [-1, notes])
+
+    # Frame model
+    frame_layers = [features] + frame_hidden_nodes + [notes]
+    logits_frame = graphs.deep_neural_network(x_frame, frame_layers, frame_dropout)
+    y_frame, loss_frame = y_and_loss(logits_frame, y_frame_gold)
+    frozen_frame = tf.stop_gradient(logits_frame)
+    train_frame = train(loss_frame, frame_learning_rate)
+    frame = Model(x, y_frame, y_gold, loss_frame, train_frame)
+
+    x_rnn = tf.reshape(frozen_frame, [-1, steps, notes])
+
+    # Sequence model
+    logits_rnn = graphs.recurrent_neural_network(x_rnn, notes, notes, steps, rnn_state_size, rnn_graph_type)
+    y_gold_flat = tf.reshape(y_gold, [-1, steps * notes])
+    y_rnn, loss_rnn = y_and_loss(logits_rnn, y_gold_flat)
+    y_rnn = tf.reshape(y_rnn, [-1, steps, notes])
+    train_rnn = train(loss_rnn, rnn_learning_rate)
+    rnn = Model(x, y_rnn, y_gold, loss_rnn, train_rnn)
+
+    return frame, rnn
+
+
 def split_sequence_into_frames(sequence, frame_size):  # (batch, steps, frame_size)
     frame = tf.transpose(sequence, [1, 0, 2])          # (steps, batch, frame_size)
     return tf.reshape(frame, [-1, frame_size])         # (steps * batch, frame_size)

@@ -304,17 +304,32 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
     with tf.Session() as sess:
         d = load_data(p, from_cache).to_sequences(p.steps)
 
-        frame, sequence = model.hierarchical_deep_network(
-            d.features,
-            p.outputs(),
-            p.steps,
-            p.frame_hidden_nodes,
-            p.frame_dropout,
-            p.frame_learning_rate,
-            p.sequence_hidden_nodes,
-            p.sequence_dropout,
-            p.sequence_learning_rate
-        )
+        if p.graph_type == 'mlp_mlp':
+            frame, sequence = model.hierarchical_deep_network(
+                d.features,
+                p.outputs(),
+                p.steps,
+                p.frame_hidden_nodes,
+                p.frame_dropout,
+                p.frame_learning_rate,
+                p.sequence_hidden_nodes,
+                p.sequence_dropout,
+                p.sequence_learning_rate
+            )
+        elif p.graph_type == 'mlp_rnn':
+            frame, sequence = model.hierarchical_recurrent_network(
+                d.features,
+                p.outputs(),
+                p.steps,
+                p.frame_hidden_nodes,
+                p.frame_dropout,
+                p.frame_learning_rate,
+                p.rnn_state_size,
+                p.rnn_graph_type,
+                p.sequence_learning_rate
+            )
+        else:
+            assert False, "Unexpected graph type [%s]" % p.graph_type
 
         sess.run(tf.initialize_all_variables())
 
@@ -533,12 +548,13 @@ def produce_prediction(slice_samples, x, y):
 if __name__ == "__main__":
     run_hierarchical_model(
         Params(
-            epochs=100,
+            epochs=4,
             train_size=600,
             test_size=200,
             corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            steps=32,
+            steps=8,
             batch_size=32,
+            graph_type='mlp_mlp',
             frame_epochs=200,
             frame_hidden_nodes=[176],
             frame_dropout=None,
