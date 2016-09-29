@@ -74,6 +74,50 @@ def spectrogram():
     plt.savefig('figures/spectrogram.eps', format='eps')
 
 
+def generated_pieces():
+
+    a = 'corpus/16k_piano_notes_88_mono_velocity_95/0046'
+    b = 'corpus/16k_piano_notes_88_poly_3_to_15_velocity_63_to_127/0041'
+    c = 'corpus/16k_multi_instrument_notes_88_poly_3_to_15_velocity_63_to_127/0042'
+
+    eng = sp.cqt_engine(512, 60)
+
+    a_spec, a_sl = data.load_x(a + '.wav', eng, coarse=False)
+    a_midi = data.load_y(a + '.mid', a_sl, 21, 109)
+    b_spec, b_sl = data.load_x(b + '.wav', eng, coarse=False)
+    b_midi = data.load_y(b + '.mid', b_sl, 21, 109)
+    c_spec, c_sl = data.load_x(c + '.wav', eng, coarse=False)
+    c_midi = data.load_y(c + '.mid', c_sl, 21, 109)
+
+    plt.subplot(321)
+    plt.pcolormesh(a_midi, cmap='hot', rasterized=True)
+    plt.ylabel('MIDI note')
+
+    plt.subplot(322)
+    plt.pcolormesh(a_spec, cmap='hot', rasterized=True)
+    plt.ylabel('Frequency bin')
+
+    plt.subplot(323)
+    plt.pcolormesh(b_midi, cmap='hot', rasterized=True)
+    plt.ylabel('MIDI note')
+
+    plt.subplot(324)
+    plt.pcolormesh(b_spec, cmap='hot', rasterized=True)
+    plt.ylabel('Frequency bin')
+
+    plt.subplot(325)
+    plt.pcolormesh(c_midi, cmap='hot', rasterized=True)
+    plt.ylabel('MIDI note')
+
+    plt.subplot(326)
+    plt.pcolormesh(c_spec, cmap='hot', rasterized=True)
+    plt.ylabel('Frequency bin')
+
+    plt.tight_layout(pad=0.1)
+
+    plt.savefig('figures/generated.eps', format='eps')
+
+
 def compare_to_real():
 
     eng = sp.cqt_engine(512, 60)
@@ -147,4 +191,5 @@ if __name__ == '__main__':
     # sampling()
     # spectrogram()
     # compare_to_real()
-    frequencies()
+    # frequencies()
+    generated_pieces()
