@@ -89,31 +89,25 @@ def generated_pieces():
     c_spec, c_sl = data.load_x(c + '.wav', eng, coarse=False)
     c_midi = data.load_y(c + '.mid', c_sl, 21, 109)
 
-    plt.subplot(321)
+    plt.subplot(321).axis('off')
     plt.pcolormesh(a_midi, cmap='hot', rasterized=True)
-    plt.ylabel('MIDI note')
 
-    plt.subplot(322)
+    plt.subplot(322).axis('off')
     plt.pcolormesh(a_spec, cmap='hot', rasterized=True)
-    plt.ylabel('Frequency bin')
 
-    plt.subplot(323)
+    plt.subplot(323).axis('off')
     plt.pcolormesh(b_midi, cmap='hot', rasterized=True)
-    plt.ylabel('MIDI note')
 
-    plt.subplot(324)
+    plt.subplot(324).axis('off')
     plt.pcolormesh(b_spec, cmap='hot', rasterized=True)
-    plt.ylabel('Frequency bin')
 
-    plt.subplot(325)
+    plt.subplot(325).axis('off')
     plt.pcolormesh(c_midi, cmap='hot', rasterized=True)
-    plt.ylabel('MIDI note')
 
-    plt.subplot(326)
+    plt.subplot(326).axis('off')
     plt.pcolormesh(c_spec, cmap='hot', rasterized=True)
-    plt.ylabel('Frequency bin')
 
-    plt.tight_layout(pad=0.1)
+    plt.tight_layout(pad=0.0)
 
     plt.savefig('figures/generated.eps', format='eps')
 
