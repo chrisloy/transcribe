@@ -159,3 +159,8 @@ if __name__ == "__main__":
     for n in range(0, number):
         generate_pair(n, of, c, p, v, i, notes=PIANO_NOTES)
         print "Completed %d of %d in [%s]" % (n + 1, number, c)
+    # import evaluate as e
+    # maps = e.maps_files("MAPS_synth")
+    # print "MAPS", len(maps)
+    # for wav, mid in maps:
+    #     write_wav_file(mid, wav, of, fixed_instrument())
