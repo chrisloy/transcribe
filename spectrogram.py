@@ -24,7 +24,7 @@ def load_mono(file_name):
     if len(list(np.shape(stereo))) == 1:
         return stereo, rate
     else:
-        return np.add(stereo[0:181818, 0], stereo[0:181818, 1]) / 2, rate  # TODO only do this for generated tracks
+        return np.add(stereo[0:-32000, 0], stereo[0:-32000, 1]) / 2, rate  # TODO only do this for generated tracks
 
 
 def plot(d, t, f):

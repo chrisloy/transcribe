@@ -33,17 +33,18 @@ def cache_maps_midi(mapsdir):
     import evaluate
     import data
     for j, (feat, mid) in enumerate(evaluate.maps_files(mapsdir, features=True)):
-        if j > 36:
-            print "Caching %s" % mid
-            _, s = data.load_cached_x(feat, coarse=False)
-            value = data.load_y(mid, s, 21, 109)
-            target = re.sub('features', 'targets', feat)
-            with open(target, 'wb') as fp:
-                cPickle.dump(value, fp)
+        print "Caching %s" % mid
+        _, s = data.load_cached_x(feat, coarse=False)
+        value = data.load_y(mid, s, 21, 109)
+        target = re.sub('features', 'targets', feat)
+        with open(target, 'wb') as fp:
+            cPickle.dump(value, fp)
 
 if __name__ == "__main__":
-    # cache_maps_midi('MAPS_16k_test')
-    # cache_maps('MAPS_16k')
+    # print "FEATURES"
+    # cache_maps('MAPS_synth')
+    # print "TARGETS"
+    # cache_maps_midi('MAPS_synth')
     corpus_name = sys.argv[1]
     num = int(sys.argv[2]) if len(sys.argv) > 2 else 60
     print "Pre-processing corpus [%s] with [%d] features per octave" % (corpus_name, num)
