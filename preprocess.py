@@ -20,7 +20,8 @@ def refresh(target):
 
 
 def cache_maps(mapsdir):
-    import spectrogram, evaluate
+    import spectrogram
+    import evaluate
     eng = spectrogram.cqt_engine(512, 60)
     print "Caching %s" % mapsdir
     for j, (wav, _) in enumerate(evaluate.maps_files(mapsdir)):
@@ -28,7 +29,20 @@ def cache_maps(mapsdir):
         print "DONE: %d/270" % (j+1)
 
 
+def cache_maps_midi(mapsdir):
+    import evaluate
+    import data
+    for j, (feat, mid) in enumerate(evaluate.maps_files(mapsdir, features=True)):
+        if j > 36:
+            print "Caching %s" % mid
+            _, s = data.load_cached_x(feat, coarse=False)
+            value = data.load_y(mid, s, 21, 109)
+            target = re.sub('features', 'targets', feat)
+            with open(target, 'wb') as fp:
+                cPickle.dump(value, fp)
+
 if __name__ == "__main__":
+    # cache_maps_midi('MAPS_16k_test')
     # cache_maps('MAPS_16k')
     corpus_name = sys.argv[1]
     num = int(sys.argv[2]) if len(sys.argv) > 2 else 60

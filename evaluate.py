@@ -10,8 +10,8 @@ from scipy.optimize import minimize_scalar as minimize
 from sklearn.metrics import f1_score
 
 
-def predict(m, p, feature_file, midi_file, sess, train_flag=False):
-    x, y_gold = data.load_named_pair_from_cache(feature_file, midi_file, p.lower, p.upper)
+def predict(m, p, feature_file, target_file, sess, train_flag=False):
+    x, y_gold = data.load_named_pair_from_cache(feature_file, target_file)
     if p.steps:
         x, y_gold = data.split_by_steps(x, y_gold, p.steps, p.features, p.notes)
     if train_flag:
@@ -24,9 +24,9 @@ def predict(m, p, feature_file, midi_file, sess, train_flag=False):
 def maps_files(d='MAPS', features=False):
     in_end = '_features.p' if features else '.wav'
     return map(
-        lambda x: (re.sub('\.mid$', in_end, x), x),
+        lambda x: (re.sub('_targets\.p$', in_end, x), x),
         filter(
-            lambda x: x.endswith('.mid') and 'MUS' in x,
+            lambda x: x.endswith('_targets.p') and 'MUS' in x,
             reduce(
                 lambda x, y: x + y,
                 (map(lambda f: os.path.join(dirpath, f), files) for dirpath, _, files in os.walk(d))
@@ -48,14 +48,15 @@ def corpus(d='corpus/piano_notes_88_poly_3_to_15_velocity_63_to_127'):
     )
 
 
-def test_on_maps(graph, threshold=0.35, is_ladder=False):
+def test_on_maps(graph, is_ladder=False):
     maps = "MAPS_16k_test"
     print "Testing against [%s] with [%s]" % (maps, graph)
     with tf.Session() as sess:
-        m, p = persist.load(sess, graph)
+        m, p, threshold = persist.load(sess, graph)
         count = 0
         f = 0
         mfs = maps_files(maps, features=True)
+        print "Using threhold [%f]" % threshold
         for i, (wav_file, midi_file) in enumerate(mfs):
             y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess, train_flag=is_ladder)
             slices = np.shape(x)[0]

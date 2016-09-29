@@ -163,6 +163,10 @@ def load_cached_x(cache_file, coarse):
     return coarsely(x, s, coarse)
 
 
+def load_cached_y(targets_file):
+    return preprocess.refresh(targets_file)
+
+
 def coarsely(x, s, coarse):
     if coarse:
         new_s = s / 3
@@ -189,9 +193,9 @@ def load_named_pair(wav_file, midi_file, engine, lower, upper):
     return np.transpose(xi), np.transpose(yi)
 
 
-def load_named_pair_from_cache(features_file, midi_file, lower, upper):
+def load_named_pair_from_cache(features_file, targets_file):
     xi, s = load_cached_x(features_file, coarse=False)
-    yi = load_y(midi_file, s, lower, upper)
+    yi = load_cached_y(targets_file)
     return np.transpose(xi), np.transpose(yi)
 
 

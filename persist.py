@@ -27,9 +27,9 @@ def load(sess, graph_id, features=660):
     with open('graphs/%s-meta.json' % graph_id, 'r') as infile:
         dx = json.load(infile)
         params = dx["params"]
+        threshold = dx["results"]["threshold"]
     p = domain.Params(**params)
-    m = None
-    if p.sequence_learning_rate:
+    if p.graph_type == 'mlp_mlp':
         _, m = model.hierarchical_deep_network(
             features,
             p.outputs(),
@@ -54,7 +54,7 @@ def load(sess, graph_id, features=660):
             hidden_nodes=p.hidden_nodes
         )
     else:
-        assert 2 + 2 == 5, "Unsupported graph type %s" % p.graph_type
+        assert False, "Unsupported graph type %s" % p.graph_type
     saver = tf.train.Saver()
     saver.restore(sess, "graphs/%s-variables.ckpt" % graph_id)
-    return m, p
+    return m, p, threshold
