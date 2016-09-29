@@ -64,7 +64,6 @@ def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, tr
             assert False, "Unexpected init command [%s]" % init
 
         act = tf.matmul(trans, w) + b
-        hs.append(act)
 
         if batch_norm:
             act = control_flow_ops.cond(
@@ -73,7 +72,8 @@ def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, tr
                 lambda: batch_norm_wrapper(act, False)
             )
 
-        if i + 1 < len(layers):
+        if i + 2 < len(layers):
+            hs.append(act)
             trans = tf.nn.relu(act)
             if dropout:
                 trans = tf.nn.dropout(trans, dropout, seed=1)
