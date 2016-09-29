@@ -40,10 +40,10 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, log=True, ea
                                  epochs,
                                  m.report_name,
                                  m.report_target.eval(feed_dict=m.dev_labelled_feed(d)),
-                                 0,  # m.loss.eval(feed_dict=m.train_labelled_feed(d)),
+                                 m.loss.eval(feed_dict=m.dev_labelled_feed(d)),
                                  m.report_name,
                                  m.report_target.eval(feed_dict=m.test_labelled_feed(d)),
-                                 0,  # m.loss.eval(feed_dict=m.test_labelled_feed(d)),
+                                 m.loss.eval(feed_dict=m.test_labelled_feed(d)),
                                  float(epoch_time) / float(j - j_last)
                              ))
             j_last = j
@@ -82,20 +82,16 @@ def train_sequence_model(epochs, m, d, report_epochs):
         t1 = time.time()
         d.shuffle_sequences()
         if j == epochs or j % report_epochs == 0:
-            sys.stdout.write("EPOCH %03d/%d - TRAIN %s: %0.8f - TEST %s: %0.8f - TIME: %0.4fs\n" %
+            sys.stdout.write("EPOCH %03d/%d - DEV %s: %0.8f (%0.8f) - TEST %s: %0.8f (%0.8f) - TIME: %0.4fs\n" %
                              (
                                  j,
                                  epochs,
                                  m.report_name,
-                                 m.report_target.eval(feed_dict={
-                                     m.x:       d.x_train,
-                                     m.y_gold:  d.y_train
-                                 }),
+                                 m.report_target.eval(feed_dict=m.dev_labelled_feed(d)),
+                                 0,  # m.loss.eval(feed_dict=m.dev_labelled_feed(d)),
                                  m.report_name,
-                                 m.report_target.eval(feed_dict={
-                                     m.x:       d.x_test,
-                                     m.y_gold:  d.y_test
-                                 }),
+                                 m.report_target.eval(feed_dict=m.test_labelled_feed(d)),
+                                 0,  # m.loss.eval(feed_dict=m.test_labelled_feed(d)),
                                  float(epoch_time) / float(j - j_last)
                              ))
             j_last = j
@@ -429,22 +425,17 @@ def produce_prediction(slice_samples, x, y):
 
 
 if __name__ == "__main__":
-    run_hierarchical_model(
+    run_frame_model(
         Params(
-            epochs=100,
-            train_size=600,
-            test_size=200,
+            epochs=200,
+            train_size=100,
+            test_size=20,
             corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            steps=8,
-            batch_size=128,
-            graph_type='mlp_rnn',
-            frame_epochs=162,
-            frame_hidden_nodes=[88],
-            frame_dropout=None,
-            frame_learning_rate=0.01,
-            rnn_state_size=88,
-            rnn_graph_type='rnn',
-            sequence_learning_rate=0.0001
+            batch_size=512,
+            graph_type='ladder',
+            dropout=None,
+            hidden_nodes=[176],
+            learning_rate=0.0001,
         ),
         report_epochs=1
     )
