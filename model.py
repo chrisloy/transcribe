@@ -114,7 +114,9 @@ def ladder_model(
         features,
         output,
         learning_rate,
-        hidden_nodes):
+        hidden_nodes,
+        noise_var,
+        noise_costs):
 
     tf.set_random_seed(1)
 
@@ -123,8 +125,6 @@ def ladder_model(
     training = tf.placeholder(tf.bool, name="training")
 
     layers = [features] + hidden_nodes + [output]
-    noise_var = 0.1
-    noise_costs = [10.0, 0.1, 0.1, 0.1]
     y_clean, y_corr, u_cost = graphs.ladder_network(x, layers, noise_var, training, denoising_cost=noise_costs)
     _, s_cost = y_and_loss(y_corr, y_gold)
     y, error = y_and_loss(y_clean, y_gold)

@@ -29,6 +29,8 @@ class Params:
         self.sequence_learning_rate = None
         self.rnn_state_size = None
         self.rnn_graph_type = None
+        self.noise_var = None
+        self.noise_costs = None
         self.__dict__.update(kwargs)
         self.notes = self.outputs()
 

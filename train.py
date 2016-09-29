@@ -138,21 +138,32 @@ def run_frame_model(
             d.subsample_frames(p.subsample)
 
     with tf.Session() as sess:
-        m = model.frame_model(
-            p.graph_type,
-            d.features,
-            p.outputs(),
-            hidden_nodes=p.hidden_nodes,
-            learning_rate=p.learning_rate,
-            dropout=p.dropout
-        )
 
         if p.graph_type == 'ladder':
-            # TODO: why??
+            m = model.ladder_model(
+                d.features,
+                p.outputs(),
+                p.learning_rate,
+                p.hidden_nodes,
+                p.noise_var,
+                p.noise_costs
+            )
+
+            # TODO: why do I need to bind the training variable here?
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
-        else:
+
+        elif p.graph_type == 'mlp':
+            m = model.feed_forward_model(
+                d.features,
+                p.outputs(),
+                p.learning_rate,
+                p.hidden_nodes,
+                p.dropout
+            )
             sess.run(tf.initialize_all_variables())
+        else:
+            assert False, "Unknown graph type [%s]" % p.graph_type
 
         for pre_p in pre_ps:
             if not pre_d:
@@ -436,6 +447,8 @@ if __name__ == "__main__":
             dropout=None,
             hidden_nodes=[176],
             learning_rate=0.0001,
+            noise_var=0.1,
+            noise_costs=[1.0, 0.1, 0.1, 0.1]
         ),
         report_epochs=1
     )
