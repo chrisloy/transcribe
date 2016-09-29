@@ -5,11 +5,11 @@ import train
 
 def grid_search_frame_models():
 
-    graph_type = ['ladder']
-    hidden_nodes = [[88], [88, 88], [176], [176, 132]]
+    graph_type = ['mlp']
+    hidden_nodes = [[22], [44], [88, 22], [88, 44]]
     learning_rate = [0.0001, 0.001, 0.01, 0.1]
     batch_size = [512, 1024]
-    dropout = [None, 0.8]
+    dropout = [None]
 
     params = []
 
