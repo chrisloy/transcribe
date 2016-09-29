@@ -70,7 +70,7 @@ def feed_forward_model(
     x = tf.placeholder(tf.float32, shape=[None, features], name="x")
     y_gold = tf.placeholder(tf.float32, shape=[None, output], name="y_gold")
     training = tf.placeholder(tf.bool) if batch_norm else None
-    act = graphs.deep_neural_network(
+    act, _ = graphs.deep_neural_network(
         x,
         [features] + hidden_nodes + [output],
         dropout=dropout,
@@ -80,25 +80,6 @@ def feed_forward_model(
     y, loss = y_and_loss(act, y_gold, one_hot)
 
     return Model(x, y, y_gold, loss, train(loss, learning_rate), training=training)
-
-
-def rnn_model(
-        features,
-        notes,
-        steps,
-        hidden,
-        graph_type,
-        learning_rate,
-        one_hot=False):
-
-    tf.set_random_seed(1)
-
-    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
-    y_gold = tf.placeholder(tf.float32, shape=[None, steps, notes], name="y_gold")
-    logits = graphs.recurrent_neural_network(x, features, notes, steps, hidden, graph_type)
-    y, loss = y_and_loss(logits, y_gold, one_hot)
-
-    return Model(x, y, y_gold, loss, train(loss, learning_rate))
 
 
 def train(loss, learning_rate):
@@ -175,7 +156,7 @@ def hierarchical_deep_network(
 
     # Frame model
     frame_layers = [features] + frame_hidden_nodes + [notes]
-    logits_frame = graphs.deep_neural_network(x_frame, frame_layers, frame_dropout)
+    logits_frame, _ = graphs.deep_neural_network(x_frame, frame_layers, frame_dropout)
     y_frame, loss_frame = y_and_loss(logits_frame, y_frame_gold)
     frozen_frame = tf.stop_gradient(logits_frame)
     train_frame = train(loss_frame, frame_learning_rate)
@@ -185,7 +166,7 @@ def hierarchical_deep_network(
 
     # Sequence model
     sequence_layers = [steps * notes] + sequence_hidden_nodes + [steps * notes]
-    logits_sequence = graphs.deep_neural_network(x_sequence, sequence_layers, sequence_dropout, init='identity')
+    logits_sequence, _ = graphs.deep_neural_network(x_sequence, sequence_layers, sequence_dropout, init='identity')
     y_gold_flat = tf.reshape(y_gold, [-1, steps * notes])
     y_sequence, loss_sequence = y_and_loss(logits_sequence, y_gold_flat)
     y_sequence = tf.reshape(y_sequence, [-1, steps, notes])
@@ -202,7 +183,6 @@ def hierarchical_recurrent_network(
         frame_hidden_nodes,
         frame_dropout,
         frame_learning_rate,
-        rnn_state_size,
         rnn_graph_type,
         rnn_learning_rate):
 
@@ -216,16 +196,17 @@ def hierarchical_recurrent_network(
 
     # Frame model
     frame_layers = [features] + frame_hidden_nodes + [notes]
-    logits_frame = graphs.deep_neural_network(x_frame, frame_layers, frame_dropout)
+    logits_frame, hs = graphs.deep_neural_network(x_frame, frame_layers, frame_dropout)
     y_frame, loss_frame = y_and_loss(logits_frame, y_frame_gold)
-    frozen_frame = tf.stop_gradient(logits_frame)
     train_frame = train(loss_frame, frame_learning_rate)
     frame = Model(x, y_frame, y_gold, loss_frame, train_frame)
 
-    x_rnn = tf.reshape(frozen_frame, [-1, steps, notes])
+    rnn_size = frame_hidden_nodes[-1]
+    frozen_frame = tf.stop_gradient(hs[-1])
+    x_rnn = tf.reshape(frozen_frame, [-1, steps, rnn_size])
 
     # Sequence model
-    logits_rnn = graphs.rnn_no_layers(x_rnn, notes, steps, rnn_graph_type)
+    logits_rnn = graphs.recurrent_neural_network(x_rnn, rnn_size, notes, steps, rnn_graph_type)
     y_gold_flat = tf.reshape(y_gold, [-1, steps * notes])
     y_rnn, loss_rnn = y_and_loss(tf.reshape(logits_rnn, [-1, steps * notes]), y_gold_flat)
     y_rnn = tf.reshape(y_rnn, [-1, steps, notes])
@@ -233,8 +214,3 @@ def hierarchical_recurrent_network(
     rnn = Model(x, y_rnn, y_gold, loss_rnn, train_rnn)
 
     return frame, rnn
-
-
-def split_sequence_into_frames(sequence, frame_size):  # (batch, steps, frame_size)
-    frame = tf.transpose(sequence, [1, 0, 2])          # (steps, batch, frame_size)
-    return tf.reshape(frame, [-1, frame_size])         # (steps * batch, frame_size)

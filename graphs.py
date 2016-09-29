@@ -48,6 +48,8 @@ def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, tr
     act = None
     trans = input_tensor
 
+    hs = []
+
     print "Graph shape: %s" % " --> ".join(map(str, layers))
 
     for i, nodes in enumerate(layers[1:]):
@@ -62,6 +64,7 @@ def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, tr
             assert False, "Unexpected init command [%s]" % init
 
         act = tf.matmul(trans, w) + b
+        hs.append(act)
 
         if batch_norm:
             act = control_flow_ops.cond(
@@ -74,11 +77,11 @@ def deep_neural_network(input_tensor, layers, dropout=None, batch_norm=False, tr
             trans = tf.nn.relu(act)
             if dropout:
                 trans = tf.nn.dropout(trans, dropout, seed=1)
-    return act
+    return act, hs
 
 
 def logistic_regression(input_tensor, input_size, output_size):
-    return deep_neural_network(input_tensor, [input_size, output_size])
+    return deep_neural_network(input_tensor, [input_size, output_size])[0]
 
 
 def rnn_no_layers(input_tensor, size, steps, graph_type):
@@ -104,32 +107,25 @@ def rnn_no_layers(input_tensor, size, steps, graph_type):
 
 def recurrent_neural_network(
         input_tensor,
-        input_size,
+        state_size,
         output_size,
         steps,
-        state_size,
-        graph_type,
-        input_model=None,
-        output_model=None):
+        graph_type):
 
-    if input_model is None:
-        input_model = partial(logistic_regression, input_size=input_size, output_size=state_size)
+    n = 2 if graph_type.startswith('bi_') else 1
+    rnn_out = n * state_size
 
-    rnn_out = 2 * state_size if graph_type.startswith('bi_') else state_size
+    output_model = partial(logistic_regression, input_size=rnn_out, output_size=output_size)
 
-    if output_model is None:
-        output_model = partial(logistic_regression, input_size=rnn_out, output_size=output_size)
-
-    input_layer = input_tensor                                        # (batch, steps, input)
-    input_layer = tf.transpose(input_layer, [1, 0, 2])                # (steps, batch, input)
-    input_layer = tf.reshape(input_layer, [-1, input_size])           # (steps * batch, input)
-    input_layer = input_model(input_layer)                            # (steps * batch, state)
+    input_layer = input_tensor                                        # (batch, steps, state)
+    input_layer = tf.transpose(input_layer, [1, 0, 2])                # (steps, batch, state)
+    input_layer = tf.reshape(input_layer, [-1, state_size])           # (steps * batch, state)
     input_layer = tf.split(0, steps, input_layer)                     # (steps, batch, state)
 
     cell = rnn_cell(graph_type, state_size)                           # (steps, batch, state)
 
-    output_layer = rnn(graph_type, cell, input_layer)                 # (steps * 2, batch, state)
-    output_layer = tf.reshape(output_layer, [-1, rnn_out])            # (steps * batch, hidden * 2)
+    output_layer = rnn(graph_type, cell, input_layer)                 # (steps * n, batch, state)
+    output_layer = tf.reshape(output_layer, [-1, rnn_out])            # (steps * batch, hidden * n)
     output_layer = output_model(output_layer)                         # (steps * batch, output)
     output_layer = tf.split(0, steps, output_layer)                   # (steps, batch, output)
 
