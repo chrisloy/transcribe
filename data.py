@@ -193,9 +193,12 @@ def load_named_pair(wav_file, midi_file, engine, lower, upper):
     return np.transpose(xi), np.transpose(yi)
 
 
-def load_named_pair_from_cache(features_file, targets_file):
+def load_named_pair_from_cache(features_file, targets_file, cached_y=True):
     xi, s = load_cached_x(features_file, coarse=False)
-    yi = load_cached_y(targets_file)
+    if cached_y:
+        yi = load_cached_y(targets_file)
+    else:
+        yi = load_y(targets_file, s, 21, 109)
     return np.transpose(xi), np.transpose(yi)
 
 

@@ -10,8 +10,8 @@ from scipy.optimize import minimize_scalar as minimize
 from sklearn.metrics import f1_score, recall_score, precision_score
 
 
-def predict(m, p, feature_file, target_file, sess):
-    x, y_gold = data.load_named_pair_from_cache(feature_file, target_file)
+def predict(m, p, feature_file, target_file, sess, cached_y=True):
+    x, y_gold = data.load_named_pair_from_cache(feature_file, target_file, cached_y)
     if p.steps:
         x, y_gold = data.split_by_steps(x, y_gold, p.steps, p.features, p.notes)
     if p.graph_type == 'ladder':
@@ -28,7 +28,7 @@ def maps_files(d='MAPS', features=False, targets=False):
     return map(
         lambda x: (re.sub(in_sub, in_end, x), x),
         filter(
-            lambda x: x.endswith(in_ppp) and 'MUS' in x,
+            lambda x: x.endswith(in_ppp),
             reduce(
                 lambda x, y: x + y,
                 (map(lambda f: os.path.join(dirpath, f), files) for dirpath, _, files in os.walk(d))
@@ -50,16 +50,20 @@ def corpus(d='corpus/piano_notes_88_poly_3_to_15_velocity_63_to_127'):
     )
 
 
-def test_on_maps(graph, maps="MAPS_16k_test"):
+def test_on_maps(graph, maps="MAPS_16k_test", ct=True):
     print "Testing against [%s] with [%s]" % (maps, graph)
+    count = 0
+    f = 0
+    mfs = maps_files(maps, features=True, targets=ct)
+    if len(mfs) == 0:
+        print "Oops, no cached Y values! Generating on-the-fly instead..."
+        mfs = maps_files(maps, features=True, targets=False)
+        ct = False
     with tf.Session() as sess:
         m, p, threshold = persist.load(sess, graph)
-        count = 0
-        f = 0
-        mfs = maps_files(maps, features=True, targets=True)
         print "Using threhold [%f]" % threshold
         for i, (wav_file, midi_file) in enumerate(mfs):
-            y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess)
+            y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess, ct)
             slices = np.shape(x)[0]
             fscore = f1_score(y_gold.flatten(), y_pred.flatten() >= threshold)
             rscore = recall_score(y_gold.flatten(), y_pred.flatten() >= threshold)
@@ -79,7 +83,8 @@ def test_on_maps(graph, maps="MAPS_16k_test"):
             print \
                 "%03d/%d : F1=[%0.8f] Rec=[%0.8f] Prec=[%0.8f] Error=[%0.8f] Thresh=[%0.4f] : Total F1 [%0.8f] (%s)" % \
                 (i + 1, len(mfs), fscore, rscore, pscore, error, best_threshold, (f / count), wav_file)
-        print "Overall F1: %0.8f" % (f / count)
+
+    print "Overall F1: %0.8f" % (f / count)
 
 
 def unroll(foo):
