@@ -208,7 +208,6 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
                 p.frame_hidden_nodes,
                 p.frame_dropout,
                 p.frame_learning_rate,
-                p.rnn_state_size,
                 p.rnn_graph_type,
                 p.sequence_learning_rate
             )
