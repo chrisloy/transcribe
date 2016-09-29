@@ -55,8 +55,8 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, log=True, ea
             if test_error < best_error:
                 best_epoch = j
                 best_error = test_error
-            elif j > best_epoch + 5:
-                print "5 epochs without improvement - STOP! Best epoch was [%d] error [%f]" % (best_epoch, best_error)
+            elif j > best_epoch + 10:
+                print "10 epochs without improvement - STOP! Best epoch was [%d] error [%f]" % (best_epoch, best_error)
                 break
 
         if j < epochs:

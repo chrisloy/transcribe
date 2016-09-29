@@ -5,9 +5,9 @@ import train
 
 def grid_search_frame_models():
 
-    graph_type = ['mlp']
-    hidden_nodes = [[22], [44], [88, 22], [88, 44]]
-    learning_rate = [0.0001, 0.001, 0.01, 0.1]
+    graph_type = ['ladder']
+    hidden_nodes = [[44], [88], [132], [44, 44], [88, 88]]
+    learning_rate = [0.0001, 0.001, 0.01]
     batch_size = [512, 1024]
     dropout = [None]
 
@@ -38,7 +38,7 @@ def grid_search_frame_models():
 
     for i, p in enumerate(params):
         before = time.time()
-        name, error = train.run_frame_model(p, d=data, ui=False, log=False, early_stop=True)
+        name, error = train.run_frame_model(p, d=data, ui=False, log=True, early_stop=True)
         dur = time.time() - before
         print "Completed run [%02d/%d] graph [%s] error [%0.8f] time [%0.4f]" % (i+1, len(params), name, error, dur)
 
