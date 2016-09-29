@@ -24,9 +24,9 @@ def predict(m, p, feature_file, midi_file, sess, train_flag=False):
 def maps_files(d='MAPS', features=False):
     in_end = '_features.p' if features else '.wav'
     return map(
-        lambda x: (re.sub('\.wav$', in_end, x), re.sub('\.wav$', '.mid', x)),
+        lambda x: (re.sub('\.mid$', in_end, x), x),
         filter(
-            lambda x: x.endswith('.wav') and 'MUS' in x,
+            lambda x: x.endswith('.mid') and 'MUS' in x,
             reduce(
                 lambda x, y: x + y,
                 (map(lambda f: os.path.join(dirpath, f), files) for dirpath, _, files in os.walk(d))
@@ -49,13 +49,13 @@ def corpus(d='corpus/piano_notes_88_poly_3_to_15_velocity_63_to_127'):
 
 
 def test_on_maps(graph, threshold=0.35, is_ladder=False):
-    maps = "MAPS_16k"
+    maps = "MAPS_16k_test"
     print "Testing against [%s] with [%s]" % (maps, graph)
     with tf.Session() as sess:
         m, p = persist.load(sess, graph)
         count = 0
         f = 0
-        mfs = maps_files('MAPS_16k', features=True)
+        mfs = maps_files(maps, features=True)
         for i, (wav_file, midi_file) in enumerate(mfs):
             y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess, train_flag=is_ladder)
             slices = np.shape(x)[0]
@@ -88,12 +88,12 @@ if __name__ == '__main__':
     # test_on_maps("lyery-estrange")     # trained on multi instrument (200 epochs, 4 subsample)    ~28
     # test_on_maps("thrap-zincide")     # trained on multi instrument (2000 epochs, 2 subsample, pre both)    ~25
     else:
-        graph = sys.argv[1]
+        g = sys.argv[1]
         feats = sys.argv[2]
         midi = sys.argv[3]
         with tf.Session() as ss:
-            model, params = persist.load(ss, graph)
-            print "Graph %s successfully loaded" % graph
+            model, params = persist.load(ss, g)
+            print "Graph %s successfully loaded" % g
             pred, gold, _ = predict(model, params, feats, midi, ss)
         train.plot_piano_roll(unroll(pred), unroll(gold))
         train.report_poly_stats(unroll(pred), unroll(gold), breakdown=False, ui=False)
