@@ -325,9 +325,9 @@ def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True, threshold=0.5):
             len(offs),
             float(np.mean(offs)),
             float(np.std(offs)),
-            precision_score(y_gold, y_pred >= threshold),
-            recall_score(y_gold, y_pred >= threshold),
-            f1_score(y_gold, y_pred >= threshold),
+            precision_score(y_gold.flatten(), y_pred.flatten() >= threshold),
+            recall_score(y_gold.flatten(), y_pred.flatten() >= threshold),
+            f1_score(y_gold.flatten(), y_pred.flatten() >= threshold),
             roc_auc_score(y_gold, y_pred)
         )
 

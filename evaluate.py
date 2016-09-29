@@ -7,7 +7,7 @@ import sys
 import tensorflow as tf
 import train
 from scipy.optimize import minimize_scalar as minimize
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, recall_score, precision_score
 
 
 def predict(m, p, feature_file, target_file, sess):
@@ -61,9 +61,11 @@ def test_on_maps(graph, maps="MAPS_16k_test"):
         for i, (wav_file, midi_file) in enumerate(mfs):
             y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess)
             slices = np.shape(x)[0]
-            score = f1_score(y_gold.flatten(), y_pred.flatten() >= threshold)
+            fscore = f1_score(y_gold.flatten(), y_pred.flatten() >= threshold)
+            rscore = recall_score(y_gold.flatten(), y_pred.flatten() >= threshold)
+            pscore = precision_score(y_gold.flatten(), y_pred.flatten() >= threshold)
             count += slices
-            f += (score * slices)
+            f += (fscore * slices)
             if p.graph_type == 'ladder':
                 error = m.report_target.eval(feed_dict={m.x: x, m.y_gold: y_gold, m.training: False})
             else:
@@ -75,8 +77,8 @@ def test_on_maps(graph, maps="MAPS_16k_test"):
             best_threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
 
             print \
-                "%03d/%d - F1 %0.8f - Error %0.8f - Total F1 %0.8f (%s) BEST THRESH: %0.4f" % \
-                (i + 1, len(mfs), score, error, (f / count), wav_file, best_threshold)
+                "%03d/%d : F1=[%0.8f] Rec=[%0.8f] Prec=[%0.8f] Error=[%0.8f] Thresh=[%0.4f] : Total F1 [%0.8f] (%s)" % \
+                (i + 1, len(mfs), fscore, rscore, pscore, error, best_threshold, (f / count), wav_file)
         print "Overall F1: %0.8f" % (f / count)
 
 
