@@ -61,7 +61,9 @@ def load(sess, graph_id, features=660):
             features,
             p.outputs(),
             p.learning_rate,
-            hidden_nodes=p.hidden_nodes
+            p.hidden_nodes,
+            p.noise_var,
+            p.noise_costs
         )
     else:
         assert False, "Unsupported graph type %s" % p.graph_type
