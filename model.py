@@ -124,14 +124,15 @@ def ladder_model(
 
     layers = [features] + hidden_nodes + [output]
     noise_var = 0.1
-    noise_costs = [0.1, 0.01, 0.01, 0.01]
+    noise_costs = [10.0, 0.1, 0.1, 0.1]
     y_clean, y_corr, u_cost = graphs.ladder_network(x, layers, noise_var, training, denoising_cost=noise_costs)
-    y, s_cost = y_and_loss(y_clean, y_gold)
+    _, s_cost = y_and_loss(y_corr, y_gold)
+    y, error = y_and_loss(y_clean, y_gold)
     loss = s_cost + u_cost
     train_step = train(loss, learning_rate)
 
     m = Model(x, y, y_gold, loss, train_step, training=training)
-    m.set_report("ERROR", s_cost)
+    m.set_report("ERROR", error)
     return m
 
 

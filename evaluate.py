@@ -10,12 +10,12 @@ from scipy.optimize import minimize_scalar as minimize
 from sklearn.metrics import f1_score
 
 
-def predict(m, p, feature_file, target_file, sess, train_flag=False):
+def predict(m, p, feature_file, target_file, sess):
     x, y_gold = data.load_named_pair_from_cache(feature_file, target_file)
     if p.steps:
         x, y_gold = data.split_by_steps(x, y_gold, p.steps, p.features, p.notes)
-    if train_flag:
-        y_pred = m.y.eval(feed_dict={m.x: x, m.training: True}, session=sess)
+    if p.graph_type == 'ladder':
+        y_pred = m.y.eval(feed_dict={m.x: x, m.training: False}, session=sess)
     else:
         y_pred = m.y.eval(feed_dict={m.x: x}, session=sess)
     return y_pred, y_gold, x
@@ -48,7 +48,7 @@ def corpus(d='corpus/piano_notes_88_poly_3_to_15_velocity_63_to_127'):
     )
 
 
-def test_on_maps(graph, is_ladder=False):
+def test_on_maps(graph):
     maps = "MAPS_16k_test"
     print "Testing against [%s] with [%s]" % (maps, graph)
     with tf.Session() as sess:
@@ -58,12 +58,15 @@ def test_on_maps(graph, is_ladder=False):
         mfs = maps_files(maps, features=True)
         print "Using threhold [%f]" % threshold
         for i, (wav_file, midi_file) in enumerate(mfs):
-            y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess, train_flag=is_ladder)
+            y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess)
             slices = np.shape(x)[0]
             score = f1_score(y_gold.flatten(), y_pred.flatten() >= threshold)
             count += slices
             f += (score * slices)
-            error = m.report_target.eval(feed_dict={m.x: x, m.y_gold: y_gold})
+            if p.graph_type == 'ladder':
+                error = m.report_target.eval(feed_dict={m.x: x, m.y_gold: y_gold, m.training: False})
+            else:
+                error = m.report_target.eval(feed_dict={m.x: x, m.y_gold: y_gold})
 
             def f1(t):
                 return 1 - f1_score(y_gold.flatten(), y_pred.flatten() >= t)

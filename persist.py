@@ -40,6 +40,16 @@ def load(sess, graph_id, features=660):
             p.sequence_hidden_nodes,
             p.sequence_dropout,
             p.sequence_learning_rate)
+    elif p.graph_type == 'mlp_rnn':
+        _, m = model.hierarchical_recurrent_network(
+            features,
+            p.outputs(),
+            p.steps,
+            p.frame_hidden_nodes,
+            p.frame_dropout,
+            p.frame_learning_rate,
+            p.rnn_graph_type,
+            p.sequence_learning_rate)
     elif p.graph_type == 'mlp':
         m = model.feed_forward_model(
             features,
