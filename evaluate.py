@@ -21,12 +21,14 @@ def predict(m, p, feature_file, target_file, sess):
     return y_pred, y_gold, x
 
 
-def maps_files(d='MAPS', features=False):
+def maps_files(d='MAPS', features=False, targets=False):
     in_end = '_features.p' if features else '.wav'
+    in_sub = '_targets\.p$' if targets else '\.mid$'
+    in_ppp = '_targets.p' if targets else '.mid'
     return map(
-        lambda x: (re.sub('_targets\.p$', in_end, x), x),
+        lambda x: (re.sub(in_sub, in_end, x), x),
         filter(
-            lambda x: x.endswith('_targets.p') and 'MUS' in x,
+            lambda x: x.endswith(in_ppp) and 'MUS' in x,
             reduce(
                 lambda x, y: x + y,
                 (map(lambda f: os.path.join(dirpath, f), files) for dirpath, _, files in os.walk(d))
@@ -48,14 +50,13 @@ def corpus(d='corpus/piano_notes_88_poly_3_to_15_velocity_63_to_127'):
     )
 
 
-def test_on_maps(graph):
-    maps = "MAPS_16k_test"
+def test_on_maps(graph, maps="MAPS_16k_test"):
     print "Testing against [%s] with [%s]" % (maps, graph)
     with tf.Session() as sess:
         m, p, threshold = persist.load(sess, graph)
         count = 0
         f = 0
-        mfs = maps_files(maps, features=True)
+        mfs = maps_files(maps, features=True, targets=True)
         print "Using threhold [%f]" % threshold
         for i, (wav_file, midi_file) in enumerate(mfs):
             y_pred, y_gold, x = predict(m, p, wav_file, midi_file, sess)
@@ -86,11 +87,8 @@ def unroll(foo):
 if __name__ == '__main__':
     if len(sys.argv) == 2:
         test_on_maps(sys.argv[1])
-    # test_on_maps("golder-bravade")     # linear model                               ~21
-    # test_on_maps("lappish-gamostely")  # trained on multi instrument (10 epochs)    ~28
-    # test_on_maps("causally-nohow")     # trained on multi instrument (20 epochs)    ~28
-    # test_on_maps("lyery-estrange")     # trained on multi instrument (200 epochs, 4 subsample)    ~28
-    # test_on_maps("thrap-zincide")     # trained on multi instrument (2000 epochs, 2 subsample, pre both)    ~25
+    elif len(sys.argv) == 3:
+        test_on_maps(sys.argv[1], sys.argv[2])
     else:
         g = sys.argv[1]
         feats = sys.argv[2]
