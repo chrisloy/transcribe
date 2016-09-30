@@ -5,40 +5,41 @@ import train
 
 def grid_search_frame_models():
 
-    graph_type = ['ladder']
-    hidden_nodes = [[44], [88], [132], [44, 44], [88, 88]]
-    learning_rate = [0.0001, 0.001, 0.01]
-    batch_size = [512, 1024]
-    dropout = [None]
+    graph_type = ['lstm', 'rnn', 'bi_rnn', 'bi_lstm']
+    learning_rate = [0.00001, 0.0001, 0.001]
+    steps = [32, 64]
 
     params = []
 
     for gt in graph_type:
-        for bs in batch_size:
-            for hn in hidden_nodes:
-                for lr in learning_rate:
-                    for d in dropout:
-                        params.append(
-                            Params(
-                                epochs=500,
-                                train_size=600,
-                                test_size=200,
-                                corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
-                                batch_size=bs,
-                                hidden_nodes=hn,
-                                dropout=d,
-                                learning_rate=lr,
-                                graph_type=gt
-                            )
-                        )
+        for lr in learning_rate:
+            for s in steps:
+                params.append(
+                    Params(
+                        epochs=250,
+                        train_size=600,
+                        test_size=200,
+                        corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
+                        batch_size=(512 / s),
+                        graph_type='mlp_rnn',
+                        # Inspired by burt-hankies
+                        frame_dropout=None,
+                        frame_epochs=250,
+                        frame_hidden_nodes=[44],
+                        frame_learning_rate=0.003,
+                        steps=s,
+                        rnn_graph_type=gt,
+                        sequence_learning_rate=lr
+                    )
+                )
 
     print "Produced %d parameter configurations" % len(params)
 
-    data = train.load_data(params[0], from_cache=True)
-
     for i, p in enumerate(params):
+        from tensorflow.python.framework import ops
+        ops.reset_default_graph()
         before = time.time()
-        name, error = train.run_frame_model(p, d=data, ui=False, log=True, early_stop=True)
+        name, error = train.run_hierarchical_model(p, ui=False, report_epochs=100)
         dur = time.time() - before
         print "Completed run [%02d/%d] graph [%s] error [%0.8f] time [%0.4f]" % (i+1, len(params), name, error, dur)
 
