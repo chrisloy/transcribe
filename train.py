@@ -191,9 +191,10 @@ def run_frame_model(
         return graph_id, test_error
 
 
-def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
+def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True):
     with tf.Session() as sess:
-        d = load_data(p, from_cache).to_sequences(p.steps)
+        if not d:
+            d = load_data(p, from_cache).to_sequences(p.steps)
 
         if p.graph_type == 'mlp_mlp':
             frame, sequence = model.hierarchical_deep_network(
@@ -256,9 +257,11 @@ def run_hierarchical_model(p, from_cache=True, report_epochs=1, ui=True):
 
         threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
         print "Found threshold [%f]" % threshold
-        persist.save(sess, sequence, d, p, threshold)
+        graph_id, test_error = persist.save(sess, sequence, d, p, threshold)
 
         report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
+
+        return graph_id, test_error
 
 
 def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold):
