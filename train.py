@@ -4,6 +4,7 @@ import midi
 import model
 import numpy as np
 import persist
+import re
 import slicer
 import sys
 import tensorflow as tf
@@ -17,7 +18,7 @@ from os import devnull
 from scipy.optimize import minimize_scalar as minimize
 
 
-def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, log=True, early_stop=False):
+def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, log=True, early_stop=False, unsup_d=None):
     batches, batch_size = d.batches, d.batch_size
     epoch_time = 0.0
     j_last = -1
@@ -69,6 +70,17 @@ def train_frame_model(epochs, m, d, report_epochs=10, shuffle=True, log=True, ea
                 stop = (k + 1) * batch_size
 
                 m.train_step.run(feed_dict=m.train_batch_feed(d, start, stop))
+
+            if unsup_d:
+                for k in range(unsup_d.batches):
+                    if log:
+                        sys.stdout.write("EPOCH %03d/%d - BATCH %04d/%d\r" % (j + 1, epochs, k + 1, unsup_d.batches))
+                        sys.stdout.flush()
+
+                    start = k * unsup_d.batches
+                    stop = (k + 1) * unsup_d.batches
+
+                    m.u_train_step.run(feed_dict=m.train_batch_feed(unsup_d, start, stop))
 
         t2 = time.time()
         epoch_time += (t2 - t1)
@@ -137,6 +149,8 @@ def run_frame_model(
         if p.subsample:
             d.subsample_frames(p.subsample)
 
+    unsup_d = None
+
     with tf.Session() as sess:
 
         if p.graph_type == 'ladder':
@@ -152,6 +166,49 @@ def run_frame_model(
             # TODO: why do I need to bind the training variable here?
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
+
+            x = []
+            y = []
+
+            mids = [
+                "MAPS_16k/16k_MAPS_MUS-schumm-6_AkPnBcht.mid",
+                "MAPS_16k/16k_MAPS_MUS-mond_1_AkPnBsdf.mid",
+                "MAPS_16k/16k_MAPS_MUS-alb_esp3_AkPnCGdD.mid",
+                "MAPS_16k/16k_MAPS_MUS-alb_esp2_AkPnStgb.mid",
+                "MAPS_16k/16k_MAPS_MUS-schub_d760_3_ENSTDkAm.mid",
+                "MAPS_16k/16k_MAPS_MUS-deb_menu_ENSTDkCl.mid",
+                "MAPS_16k/16k_MAPS_MUS-ty_september_SptkBGAm.mid",
+                "MAPS_16k/16k_MAPS_MUS-alb_esp5_SptkBGCl.mid",
+                "MAPS_16k/16k_MAPS_MUS-chpn-e01_StbgTGd2.mid"
+            ]
+
+            for mid in mids:
+                print mid
+                xi, yi = data.load_named_pair_from_cache(
+                    re.sub("\.mid$", "_features.p", mid),
+                    mid,
+                    cached_y=False
+                )
+                xi = xi[0::4, :]
+                yi = yi[0::4, :]
+                x.append(xi)
+                y.append(yi)
+
+            x = np.concatenate(x, axis=0)
+            y = np.concatenate(y, axis=0)
+
+            print "Corpus loaded with [%d] unlabelled data " % x.shape[0]
+
+            batches = x.shape[0] / p.batch_size
+
+            unsup_d = data.Data(
+                x_train=x,
+                y_train=y,
+                x_test=x,
+                y_test=y,
+                batch_size=p.batch_size,
+                batches=batches
+            )
 
         elif p.graph_type == 'mlp':
             m = model.feed_forward_model(
@@ -173,7 +230,7 @@ def run_frame_model(
             train_frame_model(pre_p.epochs, m, pre_d, report_epochs, log=log)
             print "Completed pre-training"
 
-        train_frame_model(p.epochs, m, d, report_epochs, log=log, early_stop=early_stop)
+        train_frame_model(p.epochs, m, d, report_epochs, log=log, early_stop=early_stop, unsup_d=unsup_d)
 
         y_pred_train = m.y.eval(feed_dict=m.train_unlabelled_feed(d), session=sess)
         y_pred_test = m.y.eval(feed_dict=m.test_unlabelled_feed(d), session=sess)

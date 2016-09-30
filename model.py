@@ -3,7 +3,8 @@ import tensorflow as tf
 
 
 class Model:
-    def __init__(self, x, y, y_gold, loss, train_step, i_state=None, pre_loss=None, pre_train=None, training=None):
+    def __init__(self, x, y, y_gold, loss, train_step, i_state=None, pre_loss=None, pre_train=None, training=None,
+                 u_train_step=None):
         self.x = x
         self.y = y
         self.y_gold = y_gold
@@ -15,6 +16,7 @@ class Model:
         self.pre_loss = pre_loss
         self.pre_train = pre_train
         self.training = training
+        self.u_train_step = u_train_step
 
     def set_report(self, name, target):
         self.report_name = name
@@ -130,8 +132,9 @@ def ladder_model(
     y, error = y_and_loss(y_clean, y_gold)
     loss = s_cost + u_cost
     train_step = train(loss, learning_rate)
+    u_train_step = train(u_cost, learning_rate)
 
-    m = Model(x, y, y_gold, loss, train_step, training=training)
+    m = Model(x, y, y_gold, loss, train_step, training=training, u_train_step=u_train_step)
     m.set_report("ERROR", error)
     return m
 
