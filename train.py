@@ -262,9 +262,9 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
         print "Found threshold [%f]" % threshold
         graph_id, test_error = persist.save(sess, m, d, p, threshold)
 
-        report_run_results(None, None, y_pred_test, y_gold_test, ui, threshold)
+        fscore = report_run_results(None, None, y_pred_test, y_gold_test, ui, threshold)
 
-        return graph_id, test_error
+        return graph_id, test_error, fscore
 
 
 def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold):
@@ -274,11 +274,13 @@ def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui,
         report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui, threshold=threshold)
 
     print "TEST"
-    report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui, threshold=threshold)
+    r = report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui, threshold=threshold)
 
     if ui:
         plot_piano_roll(y_pred_train[:1500, :], y_gold_train[:1500, :])
         plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
+
+    return r
 
 
 def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True, threshold=0.5):
@@ -326,6 +328,9 @@ def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True, threshold=0.5):
     offs = y_pred[y_gold == 0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
+
+        f1 = f1_score(y_gold.flatten(), y_pred.flatten() >= threshold)
+
         print "ALL  | %7d   %f   %f | %7d   %f   %f | %f   %f   %f   %f" % (
             len(ons),
             float(np.mean(ons)),
@@ -335,7 +340,7 @@ def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True, threshold=0.5):
             float(np.std(offs)),
             precision_score(y_gold.flatten(), y_pred.flatten() >= threshold),
             recall_score(y_gold.flatten(), y_pred.flatten() >= threshold),
-            f1_score(y_gold.flatten(), y_pred.flatten() >= threshold),
+            f1,
             roc_auc_score(y_gold, y_pred)
         )
 
@@ -345,6 +350,8 @@ def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True, threshold=0.5):
         if breakdown:
             plt.legend(map(str, notes) + ["overall"], loc='lower right')
         plt.show()
+
+    return f1
 
 
 def run_one_hot_joint_model(p, from_cache=True):
