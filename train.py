@@ -14,6 +14,7 @@ from collections import defaultdict
 from domain import Params
 from sklearn.metrics import roc_curve, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
 from matplotlib import pyplot as plt
+from multiprocessing import Pool
 from os import devnull
 from scipy.optimize import minimize_scalar as minimize
 
@@ -100,10 +101,10 @@ def train_sequence_model(epochs, m, d, report_epochs):
                                  epochs,
                                  m.report_name,
                                  m.report_target.eval(feed_dict=m.dev_labelled_feed(d)),
-                                 0,  # m.loss.eval(feed_dict=m.dev_labelled_feed(d)),
+                                 m.loss.eval(feed_dict=m.dev_labelled_feed(d)),
                                  m.report_name,
                                  m.report_target.eval(feed_dict=m.test_labelled_feed(d)),
-                                 0,  # m.loss.eval(feed_dict=m.test_labelled_feed(d)),
+                                 m.loss.eval(feed_dict=m.test_labelled_feed(d)),
                                  float(epoch_time) / float(j - j_last)
                              ))
             j_last = j
@@ -127,10 +128,15 @@ def train_sequence_model(epochs, m, d, report_epochs):
 
 
 def load_data(p, from_cache):
-    d = data.load(
-        p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
-    ).to_padded(p.padding).to_sparse()
-    return d
+    if p.corpus == 'MAPS_all':
+        return data.maps_all_instruments(p.batch_size)
+    elif p.corpus == 'MAPS_cross':
+        return data.maps_cross_instruments(p.batch_size)
+    else:
+        d = data.load(
+            p.train_size, p.test_size, p.slice_samples, from_cache, p.batch_size, p.corpus, p.lower, p.upper
+        ).to_padded(p.padding).to_sparse()
+        return d
 
 
 def run_frame_model(
@@ -167,48 +173,7 @@ def run_frame_model(
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
 
-            x = []
-            y = []
-
-            mids = [
-                "MAPS_16k/16k_MAPS_MUS-schumm-6_AkPnBcht.mid",
-                "MAPS_16k/16k_MAPS_MUS-mond_1_AkPnBsdf.mid",
-                "MAPS_16k/16k_MAPS_MUS-alb_esp3_AkPnCGdD.mid",
-                "MAPS_16k/16k_MAPS_MUS-alb_esp2_AkPnStgb.mid",
-                "MAPS_16k/16k_MAPS_MUS-schub_d760_3_ENSTDkAm.mid",
-                "MAPS_16k/16k_MAPS_MUS-deb_menu_ENSTDkCl.mid",
-                "MAPS_16k/16k_MAPS_MUS-ty_september_SptkBGAm.mid",
-                "MAPS_16k/16k_MAPS_MUS-alb_esp5_SptkBGCl.mid",
-                "MAPS_16k/16k_MAPS_MUS-chpn-e01_StbgTGd2.mid"
-            ]
-
-            for mid in mids:
-                print mid
-                xi, yi = data.load_named_pair_from_cache(
-                    re.sub("\.mid$", "_features.p", mid),
-                    mid,
-                    cached_y=False
-                )
-                xi = xi[0::4, :]
-                yi = yi[0::4, :]
-                x.append(xi)
-                y.append(yi)
-
-            x = np.concatenate(x, axis=0)
-            y = np.concatenate(y, axis=0)
-
-            print "Corpus loaded with [%d] unlabelled data " % x.shape[0]
-
-            batches = x.shape[0] / p.batch_size
-
-            unsup_d = data.Data(
-                x_train=x,
-                y_train=y,
-                x_test=x,
-                y_test=y,
-                batch_size=p.batch_size,
-                batches=batches
-            )
+            unsup_d = load_maps_data(p)
 
         elif p.graph_type == 'mlp':
             m = model.feed_forward_model(
@@ -254,7 +219,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
             d = load_data(p, from_cache).to_sequences(p.steps)
 
         if p.graph_type == 'mlp_mlp':
-            frame, sequence, joint = model.hierarchical_deep_network(
+            _, _, m = model.hierarchical_deep_network(
                 d.features,
                 p.outputs(),
                 p.steps,
@@ -266,7 +231,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
                 p.sequence_learning_rate
             )
         elif p.graph_type == 'mlp_rnn':
-            frame, sequence, joint = model.hierarchical_recurrent_network(
+            _, _, m = model.hierarchical_recurrent_network(
                 d.features,
                 p.outputs(),
                 p.steps,
@@ -284,29 +249,10 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
         def unroll_sequences(foo):
             return np.reshape(foo, [-1, foo.shape[-1]])
 
-        # print "***** Training on frames using [%s]" % p.corpus
-        # train_frame_model(p.frame_epochs, frame, d, report_epochs, shuffle=False)
-        #
-        # y_pred_train = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
-        # y_pred_test = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
-        #
-        # y_gold_train = unroll_sequences(d.y_train)
-        # y_gold_test = unroll_sequences(d.y_test)
-        #
-        # def f1(t):
-        #     return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
-        #
-        # threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
-        #
-        # report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
-
         print "***** Training on sequences using [%s]" % p.corpus
-        train_sequence_model(p.epochs, joint, d, report_epochs)
+        train_sequence_model(p.epochs, m, d, report_epochs)
 
-        y_pred_train = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
-        y_pred_test = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
-
-        y_gold_train = unroll_sequences(d.y_train)
+        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test}, session=sess))
         y_gold_test = unroll_sequences(d.y_test)
 
         def f1(t):
@@ -314,16 +260,18 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
 
         threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
         print "Found threshold [%f]" % threshold
-        graph_id, test_error = persist.save(sess, sequence, d, p, threshold)
+        graph_id, test_error = persist.save(sess, m, d, p, threshold)
 
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
+        report_run_results(None, None, y_pred_test, y_gold_test, ui, threshold)
 
         return graph_id, test_error
 
 
 def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold):
-    print "TRAIN"
-    report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui, threshold=threshold)
+
+    if y_pred_train:
+        print "TRAIN"
+        report_poly_stats(y_pred_train, y_gold_train, breakdown=False, ui=ui, threshold=threshold)
 
     print "TEST"
     report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui, threshold=threshold)

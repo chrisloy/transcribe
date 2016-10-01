@@ -17,7 +17,7 @@ class Params:
         self.learning_rate = 0.001
         self.steps = None
         self.hidden = None
-        self.dropout = False
+        self.dropout = None
         self.subsample = None
         self.batch_norm = False
         self.frame_epochs = None,

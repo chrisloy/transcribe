@@ -2,6 +2,7 @@ import numpy as np
 import midi
 import os
 import preprocess
+import re
 import slicer
 import sys
 from functools import partial
@@ -264,3 +265,57 @@ def load(train_size, test_size, slice_samples, from_cache, batch_size, corpus_na
     batches = x_train.shape[0] / batch_size
     print "Corpus loaded with [%d] training data and [%d] testing data" % (x_train.shape[0], x_test.shape[0])
     return Data(x_train, y_train, x_test, y_test, batches, batch_size)
+
+
+def load_maps_file(mid):
+    print "Loading [%s]" % mid
+    return load_named_pair_from_cache(re.sub("_targets\.p$", "_features.p", mid), mid)
+
+
+def load_maps_instruments(batch_size, train_files, test_files):
+
+    pool = Pool(processes=8)
+
+    def load_maps_files(ms):
+        x = []
+        y = []
+
+        xys = pool.map(load_maps_file, ms)
+
+        for xi, yi in xys:
+            x.append(xi)
+            y.append(yi)
+
+        x = np.concatenate(x, axis=0)
+        y = np.concatenate(y, axis=0)
+        print "Corpus loaded with [%d] data points." % x.shape[0]
+        return x, y, x.shape[0] / batch_size
+
+    x_train, y_train, batches = load_maps_files(train_files)
+    x_test, y_test, _ = load_maps_files(test_files)
+
+    return Data(
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+        batch_size=batch_size,
+        batches=batches
+    )
+
+
+def maps_cross_instruments(batch_size):
+    train_raw = map(lambda x: "MAPS_16k/%s" % x, filter(lambda x: "targets" in x, os.listdir("MAPS_16k")))
+    test_raw = map(lambda x: "MAPS_16k_test/%s" % x, filter(lambda x: "targets" in x, os.listdir("MAPS_16k_test")))
+    train = filter(lambda x: "ENSTDk" not in x, train_raw + test_raw)
+    test = filter(lambda x: "ENSTDk" in x, train_raw + test_raw)
+    assert len(train) == 210, train
+    assert len(test) == 60, test
+    return load_maps_instruments(batch_size, train, test)
+
+
+def maps_all_instruments(batch_size):
+    train = map(lambda x: "MAPS_16k/%s" % x, filter(lambda x: "targets" in x, os.listdir("MAPS_16k")))
+    test = map(lambda x: "MAPS_16k_test/%s" % x, filter(lambda x: "targets" in x, os.listdir("MAPS_16k_test")))
+    return load_maps_instruments(batch_size, train, test)
+
