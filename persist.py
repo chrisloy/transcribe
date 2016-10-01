@@ -30,7 +30,7 @@ def load(sess, graph_id, features=660):
         threshold = dx["results"]["threshold"]
     p = domain.Params(**params)
     if p.graph_type == 'mlp_mlp':
-        _, m = model.hierarchical_deep_network(
+        _, m, _ = model.hierarchical_deep_network(
             features,
             p.outputs(),
             p.steps,
@@ -41,7 +41,7 @@ def load(sess, graph_id, features=660):
             p.sequence_dropout,
             p.sequence_learning_rate)
     elif p.graph_type == 'mlp_rnn':
-        _, m = model.hierarchical_recurrent_network(
+        _, m, _ = model.hierarchical_recurrent_network(
             features,
             p.outputs(),
             p.steps,
