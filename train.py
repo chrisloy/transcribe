@@ -254,7 +254,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
             d = load_data(p, from_cache).to_sequences(p.steps)
 
         if p.graph_type == 'mlp_mlp':
-            frame, sequence = model.hierarchical_deep_network(
+            frame, sequence, joint = model.hierarchical_deep_network(
                 d.features,
                 p.outputs(),
                 p.steps,
@@ -266,7 +266,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
                 p.sequence_learning_rate
             )
         elif p.graph_type == 'mlp_rnn':
-            frame, sequence = model.hierarchical_recurrent_network(
+            frame, sequence, joint = model.hierarchical_recurrent_network(
                 d.features,
                 p.outputs(),
                 p.steps,
@@ -284,24 +284,24 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
         def unroll_sequences(foo):
             return np.reshape(foo, [-1, foo.shape[-1]])
 
-        print "***** Training on frames using [%s]" % p.corpus
-        train_frame_model(p.frame_epochs, frame, d, report_epochs, shuffle=False)
-
-        y_pred_train = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
-        y_pred_test = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
-
-        y_gold_train = unroll_sequences(d.y_train)
-        y_gold_test = unroll_sequences(d.y_test)
-
-        def f1(t):
-            return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
-
-        threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
-
-        report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
+        # print "***** Training on frames using [%s]" % p.corpus
+        # train_frame_model(p.frame_epochs, frame, d, report_epochs, shuffle=False)
+        #
+        # y_pred_train = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
+        # y_pred_test = unroll_sequences(frame.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
+        #
+        # y_gold_train = unroll_sequences(d.y_train)
+        # y_gold_test = unroll_sequences(d.y_test)
+        #
+        # def f1(t):
+        #     return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
+        #
+        # threshold = minimize(f1, bounds=(0, 1), method='Bounded').x
+        #
+        # report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui, threshold)
 
         print "***** Training on sequences using [%s]" % p.corpus
-        train_sequence_model(p.epochs, sequence, d, report_epochs)
+        train_sequence_model(p.epochs, joint, d, report_epochs)
 
         y_pred_train = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_train}, session=sess))
         y_pred_test = unroll_sequences(sequence.y.eval(feed_dict={sequence.x: d.x_test}, session=sess))
@@ -496,19 +496,23 @@ def produce_prediction(slice_samples, x, y):
 
 
 if __name__ == "__main__":
-    run_frame_model(
+    steps = 32
+    run_hierarchical_model(
         Params(
-            epochs=200,
-            train_size=100,
-            test_size=20,
+            epochs=100,
+            train_size=600,
+            test_size=200,
             corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
-            batch_size=512,
-            graph_type='ladder',
-            dropout=None,
-            hidden_nodes=[176],
-            learning_rate=0.0001,
-            noise_var=0.1,
-            noise_costs=[1.0, 0.1, 0.1, 0.1]
+            batch_size=(512 / steps),
+            graph_type='mlp_rnn',
+            # Inspired by burt-hankies
+            frame_dropout=None,
+            # frame_epochs=250,
+            frame_hidden_nodes=[44],
+            frame_learning_rate=0.003,
+            steps=steps,
+            rnn_graph_type='bi_rnn',
+            sequence_learning_rate=0.01
         ),
         report_epochs=1
     )

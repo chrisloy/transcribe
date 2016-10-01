@@ -217,4 +217,6 @@ def hierarchical_recurrent_network(
     train_rnn = train(loss_rnn, rnn_learning_rate)
     rnn = Model(x, y_rnn, y_gold, loss_rnn, train_rnn)
 
-    return frame, rnn
+    joint = Model(x, y_rnn, y_gold, loss_rnn + loss_frame, train(loss_rnn + loss_frame, rnn_learning_rate))
+
+    return frame, rnn, joint
