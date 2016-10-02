@@ -204,7 +204,7 @@ def run_frame_model(
         print "Found threshold [%f]" % threshold
         graph_id, test_error = persist.save(sess, m, d, p, threshold)
 
-        f_score = report_run_results(y_pred_train, d.y_train, y_pred_test, d.y_test, ui, threshold)
+        f_score = report_run_results(None, None, y_pred_test, d.y_test, ui, threshold)
 
         return graph_id, test_error, f_score
 
