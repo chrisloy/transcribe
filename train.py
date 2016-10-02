@@ -341,7 +341,7 @@ def report_poly_stats(y_pred, y_gold, breakdown=True, ui=True, threshold=0.5):
             precision_score(y_gold.flatten(), y_pred.flatten() >= threshold),
             recall_score(y_gold.flatten(), y_pred.flatten() >= threshold),
             f1,
-            roc_auc_score(y_gold, y_pred)
+            roc_auc_score(y_gold.flatten(), y_pred.flatten())
         )
 
     if ui:

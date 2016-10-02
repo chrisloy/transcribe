@@ -127,7 +127,7 @@ def ladder_model(
     training = tf.placeholder(tf.bool, name="training")
 
     layers = [features] + hidden_nodes + [output]
-    y_clean, y_corr, u_cost = graphs.ladder_network(x, layers, noise_var, training, denoising_cost=noise_costs)
+    y_clean, y_corr, u_cost, _ = graphs.ladder_network(x, layers, noise_var, training, denoising_cost=noise_costs)
     _, s_cost = y_and_loss(y_corr, y_gold)
     y, error = y_and_loss(y_clean, y_gold)
     loss = s_cost + u_cost
@@ -177,7 +177,12 @@ def hierarchical_deep_network(
     train_sequence = train(loss_sequence, sequence_learning_rate)
     sequence = Model(x, y_sequence, y_gold, loss_sequence, train_sequence)
 
-    return frame, sequence
+    joint_loss = loss_sequence + loss_frame
+
+    joint = Model(x, y_sequence, y_gold, joint_loss, train(joint_loss, sequence_learning_rate))
+    joint.set_report("ERROR", loss_sequence)
+
+    return frame, sequence, joint
 
 
 def hierarchical_recurrent_network(
@@ -223,3 +228,51 @@ def hierarchical_recurrent_network(
     joint.set_report("ERROR", loss_rnn)
 
     return frame, rnn, joint
+
+
+def hierarchical_recurrent_ladder(
+        features,
+        output,
+        steps,
+        learning_rate,
+        hidden_nodes,
+        rnn_graph_type,
+        noise_var,
+        noise_costs):
+
+    tf.set_random_seed(1)
+
+    x = tf.placeholder(tf.float32, shape=[None, steps, features], name="x")
+    y_gold = tf.placeholder(tf.float32, shape=[None, steps, output], name="y_gold")
+    training = tf.placeholder(tf.bool, name="training")
+
+    x_frame = tf.reshape(x, [-1, features])
+    y_frame_gold = tf.reshape(y_gold, [-1, output])
+
+    # Frame model
+    layers = [features] + hidden_nodes + [output]
+    y_clean, y_corr, u_cost, hs = graphs.ladder_network(x_frame, layers, noise_var, training, denoising_cost=noise_costs)
+    _, s_cost = y_and_loss(y_corr, y_frame_gold)
+    loss_frame = s_cost + u_cost
+
+    rnn_size = hidden_nodes[-1]
+    frozen_frame = tf.stop_gradient(hs[-1])
+    x_rnn = tf.reshape(frozen_frame, [-1, steps, rnn_size])
+
+    # Sequence model
+    logits_rnn = graphs.recurrent_neural_network(x_rnn, rnn_size, output, steps, rnn_graph_type)
+    y_gold_flat = tf.reshape(y_gold, [-1, steps * output])
+    y_rnn, loss_rnn = y_and_loss(tf.reshape(logits_rnn, [-1, steps * output]), y_gold_flat)
+    y_rnn = tf.reshape(y_rnn, [-1, steps, output])
+
+    joint_loss = loss_rnn + loss_frame
+
+    u_train_step = train(u_cost, learning_rate)
+
+    joint = Model(
+        x, y_rnn, y_gold, joint_loss, train(joint_loss, learning_rate), training=training, u_train_step=u_train_step)
+    joint.set_report("ERROR", loss_rnn)
+
+    return joint
+
+

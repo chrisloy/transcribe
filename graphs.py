@@ -183,6 +183,8 @@ def ladder_network(x, layers, noise, training, denoising_cost):
     z_corrs = [h_corr]
     z_cleans = [h_clean]
 
+    h_cleans = []
+
     # Encoders
     for i, nodes in enumerate(layers[1:]):
 
@@ -206,6 +208,7 @@ def ladder_network(x, layers, noise, training, denoising_cost):
         z_corrs.append(z_corr)
 
         if i + 2 < len(layers):
+            h_cleans.append(h_clean)
             h_clean = tf.nn.relu(h_clean)
             h_corr = tf.nn.relu(h_corr)
 
@@ -240,7 +243,7 @@ def ladder_network(x, layers, noise, training, denoising_cost):
     y_corr = h_corr
     u_cost = tf.add_n(dec_cost)
 
-    return y_clean, y_corr, u_cost
+    return y_clean, y_corr, u_cost, h_cleans
 
 
 def add_noise(x, noise_var):
