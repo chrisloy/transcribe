@@ -119,10 +119,7 @@ def train_sequence_model(epochs, m, d, report_epochs):
                 start = k * d.batch_size
                 stop = (k + 1) * d.batch_size
 
-                m.train_step.run(feed_dict={
-                    m.x:       d.x_train[start:stop, :, :],
-                    m.y_gold:  d.y_train[start:stop, :, :]
-                })
+                m.train_step.run(feed_dict=m.train_batch_feed(d, start, stop))
         t2 = time.time()
         epoch_time += (t2 - t1)
 
