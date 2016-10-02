@@ -173,7 +173,7 @@ def run_frame_model(
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
             sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
 
-            unsup_d = load_maps_data(p)
+            # unsup_d = load_maps_data(p)
 
         elif p.graph_type == 'mlp':
             m = model.feed_forward_model(
@@ -207,10 +207,9 @@ def run_frame_model(
         print "Found threshold [%f]" % threshold
         graph_id, test_error = persist.save(sess, m, d, p, threshold)
 
-        if log:
-            report_run_results(y_pred_train, d.y_train, y_pred_test, d.y_test, ui, threshold)
+        f_score = report_run_results(y_pred_train, d.y_train, y_pred_test, d.y_test, ui, threshold)
 
-        return graph_id, test_error
+        return graph_id, test_error, f_score
 
 
 def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True):
@@ -230,6 +229,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
                 p.sequence_dropout,
                 p.sequence_learning_rate
             )
+            sess.run(tf.initialize_all_variables())
         elif p.graph_type == 'mlp_rnn':
             _, _, m = model.hierarchical_recurrent_network(
                 d.features,
@@ -241,6 +241,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
                 p.rnn_graph_type,
                 p.sequence_learning_rate
             )
+            sess.run(tf.initialize_all_variables())
         elif p.graph_type == 'ladder_rnn':
             _, _, m = model.hierarchical_recurrent_ladder(
                 d.features,
@@ -252,10 +253,10 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
                 p.noise_var,
                 p.noise_costs
             )
+            sess.run(tf.initialize_all_variables(), feed_dict={m.training: True})
+            sess.run(tf.initialize_all_variables(), feed_dict={m.training: False})
         else:
             assert False, "Unexpected graph type [%s]" % p.graph_type
-
-        sess.run(tf.initialize_all_variables())
 
         def unroll_sequences(foo):
             return np.reshape(foo, [-1, foo.shape[-1]])
@@ -265,6 +266,8 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
 
         y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test}, session=sess))
         y_gold_test = unroll_sequences(d.y_test)
+
+        print np.shape(y_pred_test), np.shape(y_gold_test), np.shape(y_pred_test.flatten()), np.shape(y_gold_test.flatten())
 
         def f1(t):
             return 1 - f1_score(y_gold_test.flatten(), y_pred_test.flatten() >= t)
@@ -288,7 +291,8 @@ def report_run_results(y_pred_train, y_gold_train, y_pred_test, y_gold_test, ui,
     r = report_poly_stats(y_pred_test, y_gold_test, breakdown=False, ui=ui, threshold=threshold)
 
     if ui:
-        plot_piano_roll(y_pred_train[:1500, :], y_gold_train[:1500, :])
+        if y_pred_train:
+            plot_piano_roll(y_pred_train[:1500, :], y_gold_train[:1500, :])
         plot_piano_roll(y_pred_test[:1500, :], y_gold_test[:1500, :])
 
     return r
@@ -422,13 +426,13 @@ def plot_confusion_heat_map(gold, pred):
 def plot_piano_roll(y_pred, y_gold):
 
     plt.subplot(2, 1, 1)
-    plt.pcolormesh(range(y_pred.shape[0]), range(y_pred.shape[1]), np.transpose(y_pred))
+    plt.pcolormesh(range(y_pred.shape[0]), range(y_pred.shape[1]), np.transpose(y_pred), cmap='hot')
     plt.ylabel('Y')
     plt.xlabel('X')
     plt.colorbar()
 
     plt.subplot(2, 1, 2)
-    plt.pcolormesh(range(y_gold.shape[0]), range(y_gold.shape[1]), np.transpose(y_gold))
+    plt.pcolormesh(range(y_gold.shape[0]), range(y_gold.shape[1]), np.transpose(y_gold), cmap='hot')
     plt.ylabel('Y')
     plt.xlabel('X')
     plt.colorbar()
