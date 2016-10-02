@@ -241,6 +241,17 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
                 p.rnn_graph_type,
                 p.sequence_learning_rate
             )
+        elif p.graph_type == 'ladder_rnn':
+            _, _, m = model.hierarchical_recurrent_ladder(
+                d.features,
+                p.outputs(),
+                p.steps,
+                p.sequence_learning_rate,
+                p.frame_hidden_nodes,
+                p.rnn_graph_type,
+                p.noise_var,
+                p.noise_costs
+            )
         else:
             assert False, "Unexpected graph type [%s]" % p.graph_type
 
