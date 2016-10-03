@@ -194,7 +194,7 @@ def run_frame_model(
 
         train_frame_model(p.epochs, m, d, report_epochs, log=log, early_stop=early_stop, unsup_d=unsup_d)
 
-        y_pred_train = m.y.eval(feed_dict=m.train_unlabelled_feed(d), session=sess)
+        # y_pred_train = m.y.eval(feed_dict=m.train_unlabelled_feed(d), session=sess)
         y_pred_test = m.y.eval(feed_dict=m.test_unlabelled_feed(d), session=sess)
 
         def f1(t):
@@ -240,7 +240,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
             )
             sess.run(tf.initialize_all_variables())
         elif p.graph_type == 'ladder_rnn':
-            _, _, m = model.hierarchical_recurrent_ladder(
+            m = model.hierarchical_recurrent_ladder(
                 d.features,
                 p.outputs(),
                 p.steps,
@@ -261,7 +261,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
         print "***** Training on sequences using [%s]" % p.corpus
         train_sequence_model(p.epochs, m, d, report_epochs)
 
-        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.x: d.x_test}, session=sess))
+        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.test_unlabelled_feed(d)}, session=sess))
         y_gold_test = unroll_sequences(d.y_test)
 
         print np.shape(y_pred_test), np.shape(y_gold_test), np.shape(y_pred_test.flatten()), np.shape(y_gold_test.flatten())
@@ -471,7 +471,7 @@ if __name__ == "__main__":
             test_size=200,
             corpus="16k_piano_notes_88_poly_3_to_15_velocity_63_to_127",
             batch_size=(512 / steps),
-            graph_type='mlp_rnn',
+            graph_type='ladder_rnn',
             # Inspired by burt-hankies
             frame_dropout=None,
             # frame_epochs=250,
@@ -483,4 +483,5 @@ if __name__ == "__main__":
         ),
         report_epochs=1
     )
+
 

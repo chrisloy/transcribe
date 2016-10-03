@@ -132,7 +132,7 @@ def ladder_model(
     y, error = y_and_loss(y_clean, y_gold)
     loss = s_cost + u_cost
     train_step = train(loss, learning_rate)
-    u_train_step = train(u_cost, learning_rate)
+    u_train_step = None  #train(u_cost, learning_rate)
 
     m = Model(x, y, y_gold, loss, train_step, training=training, u_train_step=u_train_step)
     m.set_report("ERROR", error)
