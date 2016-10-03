@@ -261,7 +261,7 @@ def run_hierarchical_model(p, d=None, from_cache=True, report_epochs=1, ui=True)
         print "***** Training on sequences using [%s]" % p.corpus
         train_sequence_model(p.epochs, m, d, report_epochs)
 
-        y_pred_test = unroll_sequences(m.y.eval(feed_dict={m.test_unlabelled_feed(d)}, session=sess))
+        y_pred_test = unroll_sequences(m.y.eval(feed_dict=m.test_unlabelled_feed(d), session=sess))
         y_gold_test = unroll_sequences(d.y_test)
 
         print np.shape(y_pred_test), np.shape(y_gold_test), np.shape(y_pred_test.flatten()), np.shape(y_gold_test.flatten())
