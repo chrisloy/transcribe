@@ -177,7 +177,7 @@ def coarsely(x, s, coarse):
         return x, s
 
 
-def load_y(midi_file, slices, lower, upper):
+def load_y(midi_file, slices, lower=21, upper=109):
     m = midi.read_midifile(midi_file)
     return slicer.slice_midi_into(m, slices)[lower:upper, :]
 
