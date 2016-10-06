@@ -99,7 +99,7 @@ def grid_search_sequence_models():
 
     print "SUMMARY:"
     for n, e, f in results:
-        print "[%s] : Test ---> Error: [%0.8f] ---> F1: [%0.8f]" % n, e, f
+        print "[%s] : Test ---> Error: [%0.8f] ---> F1: [%0.8f]" % (n, e, f)
 
 if __name__ == '__main__':
     grid_search_sequence_models()
