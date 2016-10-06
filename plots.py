@@ -865,6 +865,85 @@ def overfitting_dnn():
     # plt.show()
 
 
+def midi_note():
+    y = data.load_cached_y("MAPS_16k/16k_MAPS_MUS-alb_esp2_AkPnStgb_targets.p")
+    plt.pcolormesh(range(121), range(30, 81), y[9:60, 0:121], cmap='hot', rasterized=True)
+    plt.ylabel("MIDI Note")
+    fig = plt.gcf()
+    fig.set_size_inches(8, 3)
+    fig.savefig('figures/midi.eps', format='eps', dpi=100)
+    # plt.show()
+
+
+def spectral_profile():
+    # A2, 110Hz
+    x, _ = data.load_cached_x("corpus/16k_piano_notes_88_mono_velocity_95/0006_features.p", False)
+    # y = data.load_y("corpus/16k_piano_notes_88_mono_velocity_95/0006.mid", 512, 0, 128)
+    # plt.pcolormesh(y[40:50, 31:33])
+    plt.plot((np.arange(300.0) / 5) - 14, x[300:600, 32])
+    plt.xlabel("Relative Pitch")
+    # plt.pcolormesh(x[:, 0:50], cmap='hot', rasterized=True)
+    plt.tight_layout(pad=3)
+    fig = plt.gcf()
+    fig.set_size_inches(6, 1.5)
+    fig.savefig('figures/spectrum.eps', format='eps', dpi=100)
+
+
+def frame_no_smoothing():
+    with tf.Session() as sess:
+        m, p, threshold = persist.load(sess, "burt-hankies")
+        x, s = data.load_cached_x("corpus/16k_piano_notes_88_poly_3_to_15_velocity_63_to_127/0010_features.p", False)
+        steps = 32
+        x = np.transpose(x)
+        keep = (x.shape[0] / steps) * steps
+        x = x[:keep, :]
+        y = data.load_y("corpus/16k_piano_notes_88_poly_3_to_15_velocity_63_to_127/0010.mid", s, 21, 109)[:keep, :]
+        y_pred = m.y.eval(feed_dict={m.x: x}, session=sess)
+
+    plt.subplot(131).axis('off')
+    plt.pcolormesh(y[:, -50:], cmap='hot', rasterized=True)
+    plt.subplot(132).axis('off')
+    plt.pcolormesh(np.transpose(y_pred)[:, -50:], cmap='hot', rasterized=True)
+    plt.subplot(133).axis('off')
+    plt.pcolormesh(np.transpose(y_pred)[:, -50:] > 0.3683, cmap='hot', rasterized=True)
+    plt.tight_layout(pad=0)
+
+    fig = plt.gcf()
+    fig.set_size_inches(6, 2)
+    fig.savefig('figures/no_smoothing.eps', format='eps', dpi=100)
+
+    # plt.show()
+
+
+def frame_smoothing():
+    with tf.Session() as sess:
+        m, p, threshold = persist.load(sess, "whiffs-amazons")
+        x, s = data.load_cached_x("corpus/16k_piano_notes_88_poly_3_to_15_velocity_63_to_127/0010_features.p", False)
+        steps = 32
+        print np.shape(x)
+        x = np.transpose(x)
+        keep = (x.shape[0] / steps) * steps
+        print keep
+        x = np.reshape(x[:keep, :], [-1, steps, 660])
+        y = data.load_y("corpus/16k_piano_notes_88_poly_3_to_15_velocity_63_to_127/0010.mid", s, 21, 109)
+        y_pred = m.y.eval(feed_dict={m.x: x}, session=sess)
+        y_pred = np.reshape(y_pred, [-1, y_pred.shape[-1]])
+
+    plt.subplot(131).axis('off')
+    plt.pcolormesh(y[:, -50:], cmap='hot', rasterized=True)
+    plt.subplot(132).axis('off')
+    plt.pcolormesh(np.transpose(y_pred)[:, -50:], cmap='hot', rasterized=True)
+    plt.subplot(133).axis('off')
+    plt.pcolormesh(np.transpose(y_pred)[:, -50:] > 0.5, cmap='hot', rasterized=True)
+    plt.tight_layout(pad=0)
+
+    fig = plt.gcf()
+    fig.set_size_inches(6, 2)
+    fig.savefig('figures/smoothing.eps', format='eps', dpi=100)
+
+    # plt.show()
+
+
 if __name__ == '__main__':
     plt.figure(facecolor="white")
     # sampling()
@@ -873,4 +952,8 @@ if __name__ == '__main__':
     # frequencies()
     # generated_pieces()
     # curriculum()
-    overfitting_dnn()
+    # overfitting_dnn()
+    # midi_note()
+    # spectral_profile()
+    # frame_no_smoothing()
+    frame_smoothing()
